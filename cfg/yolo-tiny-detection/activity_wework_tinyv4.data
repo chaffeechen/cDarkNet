@@ -1,0 +1,7 @@
+classes= 10
+train  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/train.txt
+valid  = /home/ubuntu/CV/data/wework_activity/Scene_4/test_2/test.txt
+names = cfg/activity_wework.names
+backup = /home/ubuntu/darknet/backup/tinyv1
+eval=/home/ubuntu/CV/data/wework_activity/Scene_1_2/test.txt
+
