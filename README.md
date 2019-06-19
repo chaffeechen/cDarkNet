@@ -1,6 +1,7 @@
 # cDarkNet
 cDarkNet is modified by AlexeyAB's darknet
 1. detector test function modified
+   usage ./darknet detector test2 <same thing as usual> -iou_thresh X.X
    threshold for objectiveness and classification is seperated
    
 2. class_scale, object_scale, coord_scale is added into yolo layer
