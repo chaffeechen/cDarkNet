@@ -137,14 +137,14 @@ void update_network_gpu(network net)
     }
 }
 
-void forward_backward_network_gpu(network net, float *x, float *y)
+void forward_backward_network_gpu(network net, float *x, float *y)//这里的y都是传递给state.truth的，只是大小的问题
 {
     network_state state;
     state.index = 0;
     state.net = net;
     int x_size = get_network_input_size(net)*net.batch;
-    int y_size = get_network_output_size(net)*net.batch;
-    if(net.layers[net.n-1].truths) y_size = net.layers[net.n-1].truths*net.batch;
+    int y_size = get_network_output_size(net)*net.batch;//正常情况下的网络输入输出大小由网络的input和output决定
+    if(net.layers[net.n-1].truths) y_size = net.layers[net.n-1].truths*net.batch;//但当其是yolo层的时候，情况比较特殊，由truths的大小决定
     if(!*net.input_gpu){
         *net.input_gpu = cuda_make_array(x, x_size);
         *net.truth_gpu = cuda_make_array(y, y_size);

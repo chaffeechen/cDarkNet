@@ -33,6 +33,7 @@
 #include "utils.h"
 #include "upsample_layer.h"
 #include "yolo_layer.h"
+#include "yolo2_layer.h"
 #include <stdint.h>
 
 typedef struct{
@@ -51,6 +52,7 @@ LAYER_TYPE string_to_layer_type(char * type)
     if (strcmp(type, "[detection]")==0) return DETECTION;
     if (strcmp(type, "[region]")==0) return REGION;
     if (strcmp(type, "[yolo]") == 0) return YOLO;
+    if (strcmp(type, "[yolo2]") == 0) return YOLO2;
     if (strcmp(type, "[local]")==0) return LOCAL;
     if (strcmp(type, "[conv]")==0
             || strcmp(type, "[convolutional]")==0) return CONVOLUTIONAL;
@@ -287,6 +289,7 @@ int *parse_yolo_mask(char *a, int *num)
     }
     return mask;
 }
+
 /*
 Chaffee@20190618
 */
@@ -332,6 +335,61 @@ layer parse_yolo(list *options, size_params params)
     if (l.outputs != params.inputs) {
         printf("Error: l.outputs == params.inputs \n");
         printf("filters= in the [convolutional]-layer doesn't correspond to classes= or mask= in [yolo]-layer \n");
+        exit(EXIT_FAILURE);
+    }
+    //assert(l.outputs == params.inputs);
+
+    //l.max_boxes = option_find_int_quiet(options, "max", 90);
+    l.jitter = option_find_float(options, "jitter", .2);
+    l.focal_loss = option_find_int_quiet(options, "focal_loss", 0);
+
+    l.ignore_thresh = option_find_float(options, "ignore_thresh", .5);
+    l.truth_thresh = option_find_float(options, "truth_thresh", 1);
+    l.random = option_find_int_quiet(options, "random", 0);
+    l.coord_scale = option_find_float_quiet(options, "coord_scale", 1);
+    l.class_scale = option_find_float_quiet(options, "class_scale", 1);
+    l.learning_rate_scale = option_find_float_quiet(options, "learning_rate_scale", 1);
+    l.object_scale = option_find_float_quiet(options,"object_scale",1);
+    l.noobject_scale = option_find_float_quiet(options,"noobject_scale",1);
+
+    char *map_file = option_find_str(options, "map", 0);
+    if (map_file) l.map = read_map(map_file);
+
+    a = option_find_str(options, "anchors", 0);
+    if (a) {
+        int len = strlen(a);
+        int n = 1;
+        int i;
+        for (i = 0; i < len; ++i) {
+            if (a[i] == ',') ++n;
+        }
+        for (i = 0; i < n && i < total*2; ++i) {
+            float bias = atof(a);
+            l.biases[i] = bias;
+            a = strchr(a, ',') + 1;
+        }
+    }
+    return l;
+}
+
+layer parse_yolo2(list *options, size_params params)
+{
+    int classes = option_find_int(options, "classes", 20);
+    int total = option_find_int(options, "num", 1);
+    int num = total;
+
+    char *a = option_find_str(options, "mask", 0);
+    int *mask = parse_yolo_mask(a, &num);//same as yolo
+    int max_boxes = option_find_int_quiet(options, "max", 90);
+
+    //new malloc space, free at layer.c
+    char *cw = option_find_str(options, "class_weights" , 0 );
+    float *class_weights = parse_yolo_class_weights(cw,classes);//same as yolo
+    //++class_weights
+    layer l = make_yolo2_layer2(params.batch, params.w, params.h, num, total, mask, class_weights , classes, max_boxes);
+    if (l.outputs != params.inputs) {
+        printf("Error: l.outputs == params.inputs \n");
+        printf("filters= in the [convolutional]-layer doesn't correspond to classes= or mask= in [yolo2]-layer \n");
         exit(EXIT_FAILURE);
     }
     //assert(l.outputs == params.inputs);
@@ -835,6 +893,8 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
             l = parse_region(options, params);
         }else if (lt == YOLO) {
             l = parse_yolo(options, params);
+        }else if (lt == YOLO2) {//yolo2 parser
+            l = parse_yolo2(options, params);
         }else if(lt == DETECTION){
             l = parse_detection(options, params);
         }else if(lt == SOFTMAX){
@@ -933,7 +993,7 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
 #endif
 
     LAYER_TYPE lt = net.layers[net.n - 1].type;
-    if ((net.w % 32 != 0 || net.h % 32 != 0) && (lt == YOLO || lt == REGION || lt == DETECTION)) {
+    if ((net.w % 32 != 0 || net.h % 32 != 0) && (lt == YOLO || lt == REGION || lt == DETECTION || lt == YOLO2)) {
         printf("\n Warning: width=%d and height=%d in cfg-file must be divisible by 32 for default networks Yolo v1/v2/v3!!! \n\n",
             net.w, net.h);
     }

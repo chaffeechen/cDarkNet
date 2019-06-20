@@ -29,6 +29,7 @@
 #include "route_layer.h"
 #include "shortcut_layer.h"
 #include "yolo_layer.h"
+#include "yolo2_layer.h"
 #include "upsample_layer.h"
 #include "parser.h"
 
@@ -288,7 +289,7 @@ float train_network_datum(network net, float *x, float *y)
     state.net = net;
     state.input = x;
     state.delta = 0;
-    state.truth = y;
+    state.truth = y;//In cpu mode, this operation is correct. y is truth without malloc space using layer.outputs
     state.train = 1;
     forward_network(net, state);
     backward_network(net, state);
@@ -332,6 +333,28 @@ float train_network(network net, data d)
     }
     free(X);
     free(y);
+    return (float)sum/(n*batch);
+}
+
+float train_network_aug(network net, data d)
+{
+    assert(d.X.rows % net.batch == 0);
+    int batch = net.batch;
+    int n = d.X.rows / batch;
+    float* X = (float*)calloc(batch * d.X.cols, sizeof(float));
+    float* y = (float*)calloc(batch * d.y.cols, sizeof(float));
+    // float* z = (float*)calloc(batch * d.z.cols, sizeof(float));
+
+    int i;
+    float sum = 0;
+    for(i = 0; i < n; ++i){
+        get_next_batch_aug(d, batch, i*batch, X, y, NULL);
+        float err = train_network_datum(net, X, y);
+        sum += err;
+    }
+    free(X);
+    free(y);
+    // free(z);
     return (float)sum/(n*batch);
 }
 
@@ -463,6 +486,8 @@ int resize_network(network *net, int w, int h)
             resize_region_layer(&l, w, h);
         }else if (l.type == YOLO) {
             resize_yolo_layer(&l, w, h);
+        }else if (l.type == YOLO2) {
+            resize_yolo2_layer(&l, w, h);
         }else if(l.type == ROUTE){
             resize_route_layer(&l, net);
         }else if (l.type == SHORTCUT) {
@@ -622,6 +647,9 @@ int num_detections(network *net, float thresh)
         if (l.type == YOLO) {
             s += yolo_num_detections(l, thresh);
         }
+        if (l.type == YOLO2) {
+            s += yolo2_num_detections(l, thresh);
+        }
         if (l.type == DETECTION || l.type == REGION) {
             s += l.w*l.h*l.n;
         }
@@ -666,7 +694,7 @@ void custom_get_region_detections(layer l, int w, int h, int net_w, int net_h, f
     free_ptrs((void **)probs, l.w*l.h*l.n);
 
     //correct_region_boxes(dets, l.w*l.h*l.n, w, h, net_w, net_h, relative);
-    correct_yolo_boxes(dets, l.w*l.h*l.n, w, h, net_w, net_h, relative, letter);
+    correct_yolo_boxes(dets, l.w*l.h*l.n, w, h, net_w, net_h, relative, letter);//dont worry about version of yolo, it is used for region and same in both yolo version
 }
 
 void fill_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, detection *dets, int letter)
@@ -677,6 +705,15 @@ void fill_network_boxes(network *net, int w, int h, float thresh, float hier, in
         layer l = net->layers[j];
         if (l.type == YOLO) {
             int count = get_yolo_detections(l, w, h, net->w, net->h, thresh, map, relative, dets, letter);
+            dets += count;
+            if (prev_classes < 0) prev_classes = l.classes;
+            else if (prev_classes != l.classes) {
+                printf(" Error: Different [yolo] layers have different number of classes = %d and %d - check your cfg-file! \n",
+                    prev_classes, l.classes);
+            }
+        }
+        if (l.type == YOLO2) {
+            int count = get_yolo2_detections(l, w, h, net->w, net->h, thresh, map, relative, dets, letter);
             dets += count;
             if (prev_classes < 0) prev_classes = l.classes;
             else if (prev_classes != l.classes) {
@@ -705,6 +742,15 @@ void fill_network_boxes_double_thresh(network *net, int w, int h, float thresh, 
         layer l = net->layers[j];
         if (l.type == YOLO) {
             int count = get_yolo_detections_double_thresh(l, w, h, net->w, net->h, thresh, iou_thresh, map, relative, dets, letter);
+            dets += count;
+            if (prev_classes < 0) prev_classes = l.classes;
+            else if (prev_classes != l.classes) {
+                printf(" Error: Different [yolo] layers have different number of classes = %d and %d - check your cfg-file! \n",
+                    prev_classes, l.classes);
+            }
+        }
+        if (l.type == YOLO2) {
+            int count = get_yolo2_detections_double_thresh(l, w, h, net->w, net->h, thresh, iou_thresh, map, relative, dets, letter);
             dets += count;
             if (prev_classes < 0) prev_classes = l.classes;
             else if (prev_classes != l.classes) {

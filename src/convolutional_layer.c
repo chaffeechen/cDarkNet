@@ -336,8 +336,8 @@ convolutional_layer make_convolutional_layer(int batch, int steps, int h, int w,
     l.index = index;
     l.h = h;
     l.w = w;
-    l.c = c;
-    l.n = n;
+    l.c = c;//input channel
+    l.n = n;//output channel
     l.binary = binary;
     l.xnor = xnor;
     l.use_bin_output = use_bin_output;

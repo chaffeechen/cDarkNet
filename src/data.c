@@ -209,6 +209,46 @@ box_label *read_boxes(char *filename, int *n)
     return boxes;
 }
 
+box_label *read_boxes_aug(char *filename, int *n)
+{
+    box_label* boxes = (box_label*)calloc(1, sizeof(box_label));
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        printf("Can't open label file. (This can be normal only if you use MSCOCO): %s \n", filename);
+        //file_error(filename);
+        FILE* fw = fopen("bad.list", "a");
+        fwrite(filename, sizeof(char), strlen(filename), fw);
+        char *new_line = "\n";
+        fwrite(new_line, sizeof(char), strlen(new_line), fw);
+        fclose(fw);
+        if (check_mistakes) getchar();
+
+        *n = 0;
+        return boxes;
+    }
+    float x, y, h, w;
+    int id,trust_type;
+    int count = 0;
+    //aug_data scan
+    while(fscanf(file, "%d %f %f %f %f %d", &id, &x, &y, &w, &h , &trust_type) == 6){//5->6
+        boxes = (box_label*)realloc(boxes, (count + 1) * sizeof(box_label));
+        boxes[count].id = id;
+        boxes[count].x = x;
+        boxes[count].y = y;
+        boxes[count].h = h;
+        boxes[count].w = w;
+        boxes[count].left   = x - w/2;
+        boxes[count].right  = x + w/2;
+        boxes[count].top    = y - h/2;
+        boxes[count].bottom = y + h/2;
+        boxes[count].trust_type = trust_type;//++
+        ++count;
+    }
+    fclose(file);
+    *n = count;
+    return boxes;
+}
+
 void randomize_boxes(box_label *b, int n)
 {
     int i;
@@ -419,6 +459,106 @@ void fill_truth_detection(const char *path, int num_boxes, float *truth, int cla
     free(boxes);
 }
 
+/*
+fill_truth_detection
+with aug_data matrix z = trust_type
+*/
+void fill_truth_detection_aug(const char *path, int num_boxes, float *truth ,int classes, int flip, float dx, float dy, float sx, float sy,
+    int net_w, int net_h)
+{
+    char labelpath[4096];
+    replace_image_to_label(path, labelpath);
+
+    int count = 0;
+    int i;
+    box_label *boxes = read_boxes_aug(labelpath, &count);
+    float lowest_w = 1.F / net_w;
+    float lowest_h = 1.F / net_h;
+    randomize_boxes(boxes, count);
+    correct_boxes(boxes, count, dx, dy, sx, sy, flip);
+    if (count > num_boxes) count = num_boxes;
+    float x, y, w, h, t;//t = trust_type
+    int id;
+    int sub = 0;
+
+    for (i = 0; i < count; ++i) {
+        x = boxes[i].x;
+        y = boxes[i].y;
+        w = boxes[i].w;
+        h = boxes[i].h;
+        id = boxes[i].id;
+        t = (float)( boxes[i].trust_type );
+
+
+        // not detect small objects
+        //if ((w < 0.001F || h < 0.001F)) continue;
+        // if truth (box for object) is smaller than 1x1 pix
+        char buff[256];
+        if (id >= classes) {
+            printf("\n Wrong annotation: class_id = %d. But class_id should be [from 0 to %d] \n", id, (classes-1));
+            sprintf(buff, "echo %s \"Wrong annotation: class_id = %d. But class_id should be [from 0 to %d]\" >> bad_label.list", labelpath, id, (classes-1));
+            system(buff);
+            getchar();
+            ++sub;
+            continue;
+        }
+        if ((w < lowest_w || h < lowest_h)) {
+            //sprintf(buff, "echo %s \"Very small object: w < lowest_w OR h < lowest_h\" >> bad_label.list", labelpath);
+            //system(buff);
+            ++sub;
+            continue;
+        }
+        if (x == 999999 || y == 999999) {
+            printf("\n Wrong annotation: x = 0, y = 0 \n");
+            sprintf(buff, "echo %s \"Wrong annotation: x = 0 or y = 0\" >> bad_label.list", labelpath);
+            system(buff);
+            ++sub;
+            if (check_mistakes) getchar();
+            continue;
+        }
+        if (x <= 0 || x > 1 || y <= 0 || y > 1) {
+            printf("\n Wrong annotation: x = %f, y = %f \n", x, y);
+            sprintf(buff, "echo %s \"Wrong annotation: x = %f, y = %f\" >> bad_label.list", labelpath, x, y);
+            system(buff);
+            ++sub;
+            if (check_mistakes) getchar();
+            continue;
+        }
+        if (w > 1) {
+            printf("\n Wrong annotation: w = %f \n", w);
+            sprintf(buff, "echo %s \"Wrong annotation: w = %f\" >> bad_label.list", labelpath, w);
+            system(buff);
+            w = 1;
+            if (check_mistakes) getchar();
+        }
+        if (h > 1) {
+            printf("\n Wrong annotation: h = %f \n", h);
+            sprintf(buff, "echo %s \"Wrong annotation: h = %f\" >> bad_label.list", labelpath, h);
+            system(buff);
+            h = 1;
+            if (check_mistakes) getchar();
+        }
+        if (t > 10 || t < 0) {
+            printf("\n Wrong data aug: t = %f \n", t);
+            sprintf(buff, "echo %s \"Wrong annotation: h = %f\" >> bad_label.list", labelpath, t);
+            system(buff);
+            t = 0;
+            if (check_mistakes) getchar();
+        }
+        if (x == 0) x += lowest_w;
+        if (y == 0) y += lowest_h;
+
+        truth[(i-sub)*6+0] = x;
+        truth[(i-sub)*6+1] = y;
+        truth[(i-sub)*6+2] = w;
+        truth[(i-sub)*6+3] = h;
+        truth[(i-sub)*6+4] = id;
+        truth[(i-sub)*6+5] = t;
+        // trust_type[i-sub] = t;//++20190619
+    }
+    free(boxes);
+}
+
 
 void print_letters(float *pred, int n)
 {
@@ -573,14 +713,18 @@ char **get_labels(char *filename)
     return get_labels_custom(filename, NULL);
 }
 
+//++matrix z
 void free_data(data d)
 {
     if(!d.shallow){
         free_matrix(d.X);
         free_matrix(d.y);
+        // free_matrix(d.z);
     }else{
         free(d.X.vals);
         free(d.y.vals);
+        // if (d.z.vals != NULL)
+        //     free(d.z.vals);
     }
 }
 
@@ -598,6 +742,7 @@ data load_data_region(int n, char **paths, int m, int w, int h, int size, int cl
 
     int k = size*size*(5+classes);
     d.y = make_matrix(n, k);
+    // d.z = make_matrix(1,1);
     for(i = 0; i < n; ++i){
         image orig = load_image_color(random_paths[i], 0, 0);
 
@@ -651,6 +796,7 @@ data load_data_compare(int n, char **paths, int m, int classes, int w, int h)
 
     int k = 2*(classes);
     d.y = make_matrix(n, k);
+    // d.z = make_matrix(1,1);
     for(i = 0; i < n; ++i){
         image im1 = load_image_color(paths[i*2],   w, h);
         image im2 = load_image_color(paths[i*2+1], w, h);
@@ -722,6 +868,7 @@ data load_data_swag(char **paths, int n, int classes, float jitter)
 
     int k = (4+classes)*30;
     d.y = make_matrix(1, k);
+    // d.z = make_matrix(1,1);
 
     int dw = w*jitter;
     int dh = h*jitter;
@@ -795,6 +942,8 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     int augmentation_calculated = 0;
 
     d.y = make_matrix(n, 5*boxes);
+    // d.z = make_matrix(1,1);
+
     for(i = 0; i < n; ++i){
         const char *filename = random_paths[i];
 
@@ -875,6 +1024,91 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     free(random_paths);
     return d;
 }
+
+data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+{
+    c = c ? c : 3;
+    char **random_paths;
+    if (track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
+    else random_paths = get_random_paths(paths, n, m);
+    int i;
+    data d = {0};//指针都初始化为0
+    d.shallow = 0;
+
+    d.X.rows = n;
+    d.X.vals = (float**)calloc(d.X.rows, sizeof(float*));
+    d.X.cols = h*w*c;
+
+    float r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+    float dhue = 0, dsat = 0, dexp = 0, flip = 0;
+    int augmentation_calculated = 0;
+
+    d.y = make_matrix(n, 6*boxes);//5->6
+    //+aug_data 20190619
+    // d.z = make_matrix(n,boxes);
+    for(i = 0; i < n; ++i){
+        const char *filename = random_paths[i];
+
+        int flag = (c >= 3);
+        IplImage *src;
+        if ((src = cvLoadImage(filename, flag)) == 0)
+        {
+            fprintf(stderr, "Cannot load image \"%s\"\n", filename);
+            char buff[256];
+            sprintf(buff, "echo %s >> bad.list", filename);
+            system(buff);
+            if (check_mistakes) getchar();
+            continue;
+            //exit(0);
+        }
+
+        int oh = src->height;
+        int ow = src->width;
+
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
+
+        if(!augmentation_calculated || !track)
+        {
+            augmentation_calculated = 1;
+            r1 = random_float();
+            r2 = random_float();
+            r3 = random_float();
+            r4 = random_float();
+
+            dhue = rand_uniform_strong(-hue, hue);
+            dsat = rand_scale(saturation);
+            dexp = rand_scale(exposure);
+
+            flip = use_flip ? random_gen() % 2 : 0;
+        }
+
+        int pleft  = rand_precalc_random(-dw, dw, r1);
+        int pright = rand_precalc_random(-dw, dw, r2);
+        int ptop   = rand_precalc_random(-dh, dh, r3);
+        int pbot   = rand_precalc_random(-dh, dh, r4);
+
+        int swidth =  ow - pleft - pright;
+        int sheight = oh - ptop - pbot;
+
+        float sx = (float)swidth  / ow;
+        float sy = (float)sheight / oh;
+
+        float dx = ((float)pleft/ow)/sx;
+        float dy = ((float)ptop /oh)/sy;
+
+        image ai = image_data_augmentation(src, w, h, pleft, ptop, swidth, sheight, flip, jitter, dhue, dsat, dexp);
+        d.X.vals[i] = ai.data;
+
+        //different function
+        fill_truth_detection_aug(filename, boxes, d.y.vals[i] , classes, flip, dx, dy, 1./sx, 1./sy, w, h);
+
+        cvReleaseImage(&src);
+    }
+    free(random_paths);
+    return d;
+}
+
 #else    // OPENCV
 data load_data_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
 {
@@ -895,6 +1129,8 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     int augmentation_calculated = 0;
 
     d.y = make_matrix(n, 5 * boxes);
+    // d.z = make_matrix(1,1);
+
     for (i = 0; i < n; ++i) {
         image orig = load_image(random_paths[i], 0, 0, c);
 
@@ -968,6 +1204,103 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     free(random_paths);
     return d;
 }
+
+data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+{
+    c = c ? c : 3;
+    char **random_paths;
+    if(track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
+    else random_paths = get_random_paths(paths, n, m);
+    int i;
+    data d = { 0 };
+    d.shallow = 0;
+
+    d.X.rows = n;
+    d.X.vals = (float**)calloc(d.X.rows, sizeof(float*));
+    d.X.cols = h*w*c;
+
+    float r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+    float dhue = 0, dsat = 0, dexp = 0, flip = 0;
+    int augmentation_calculated = 0;
+
+    d.y = make_matrix(n, 6 * boxes);
+    //+aug_data 20190619
+    // d.z = make_matrix(n,boxes);
+
+    for (i = 0; i < n; ++i) {
+        image orig = load_image(random_paths[i], 0, 0, c);
+
+        int oh = orig.h;
+        int ow = orig.w;
+
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
+
+        if (!augmentation_calculated || !track)
+        {
+            augmentation_calculated = 1;
+            r1 = random_float();
+            r2 = random_float();
+            r3 = random_float();
+            r4 = random_float();
+
+            dhue = rand_uniform_strong(-hue, hue);
+            dsat = rand_scale(saturation);
+            dexp = rand_scale(exposure);
+
+            flip = use_flip ? random_gen() % 2 : 0;
+        }
+
+        int pleft = rand_precalc_random(-dw, dw, r1);
+        int pright = rand_precalc_random(-dw, dw, r2);
+        int ptop = rand_precalc_random(-dh, dh, r3);
+        int pbot = rand_precalc_random(-dh, dh, r4);
+
+        int swidth = ow - pleft - pright;
+        int sheight = oh - ptop - pbot;
+
+        float sx = (float)swidth / ow;
+        float sy = (float)sheight / oh;
+
+        image cropped = crop_image(orig, pleft, ptop, swidth, sheight);
+
+        float dx = ((float)pleft / ow) / sx;
+        float dy = ((float)ptop / oh) / sy;
+
+        image sized = resize_image(cropped, w, h);
+        if (flip) flip_image(sized);
+        distort_image(sized, dhue, dsat, dexp);
+        //random_distort_image(sized, hue, saturation, exposure);
+        d.X.vals[i] = sized.data;
+
+        fill_truth_detection_aug(random_paths[i], boxes, d.y.vals[i] , classes, flip, dx, dy, 1. / sx, 1. / sy, w, h);
+
+        /*
+        {
+            char buff[10];
+            sprintf(buff, "aug_%s_%d", random_paths[i], random_gen());
+            int t;
+            for (t = 0; t < boxes; ++t) {
+                box b = float_to_box_stride(d.y.vals[i] + t*(4 + 1), 1);
+                if (!b.x) break;
+                int left = (b.x - b.w / 2.)*sized.w;
+                int right = (b.x + b.w / 2.)*sized.w;
+                int top = (b.y - b.h / 2.)*sized.h;
+                int bot = (b.y + b.h / 2.)*sized.h;
+                draw_box_width(sized, left, top, right, bot, 3, 150, 100, 50); // 3 channels RGB
+            }
+
+            show_image(sized, buff);
+            cvWaitKey(0);
+        }*/
+
+        free_image(orig);
+        free_image(cropped);
+    }
+    free(random_paths);
+    return d;
+}
+
 #endif    // OPENCV
 
 void *load_thread(void *ptr)
@@ -978,7 +1311,9 @@ void *load_thread(void *ptr)
     if(a.exposure == 0) a.exposure = 1;
     if(a.saturation == 0) a.saturation = 1;
     if(a.aspect == 0) a.aspect = 1;
-
+    /*
+    + DETECTION_AUG_DATA to support data with low trust
+    */
     if (a.type == OLD_CLASSIFICATION_DATA){
         *a.d = load_data_old(a.paths, a.n, a.m, a.labels, a.classes, a.w, a.h);
     } else if (a.type == CLASSIFICATION_DATA){
@@ -1003,6 +1338,8 @@ void *load_thread(void *ptr)
         *(a.resized) = letterbox_image(*(a.im), a.w, a.h);
     } else if (a.type == TAG_DATA){
         *a.d = load_data_tag(a.paths, a.n, a.m, a.classes, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
+    } else if (a.type == DETECTION_AUG_DATA){
+        *a.d = load_data_aug_detection(a.n, a.paths, a.m, a.w, a.h, a.c, a.num_boxes, a.classes, a.flip, a.jitter, a.hue, a.saturation, a.exposure, a.mini_batch, a.track, a.augment_speed);
     }
     free(ptr);
     return 0;
@@ -1064,6 +1401,8 @@ data load_data_writing(char **paths, int n, int m, int w, int h, int out_w, int 
     d.shallow = 0;
     d.X = load_image_paths(paths, n, w, h);
     d.y = load_image_paths_gray(replace_paths, n, out_w, out_h);
+    // d.z = make_matrix(1,1);
+
     if(m) free(paths);
     int i;
     for(i = 0; i < n; ++i) free(replace_paths[i]);
@@ -1078,6 +1417,7 @@ data load_data_old(char **paths, int n, int m, char **labels, int k, int w, int 
     d.shallow = 0;
     d.X = load_image_paths(paths, n, w, h);
     d.y = load_labels_paths(paths, n, labels, k, 0);
+    // d.z = make_matrix(1,1);
     if(m) free(paths);
     return d;
 }
@@ -1110,6 +1450,7 @@ data load_data_super(char **paths, int n, int m, int w, int h, int scale)
     d.y.rows = n;
     d.y.vals = (float**)calloc(n, sizeof(float*));
     d.y.cols = w*scale * h*scale * 3;
+    // d.z = make_matrix(1,1);
 
     for(i = 0; i < n; ++i){
         image im = load_image_color(paths[i], 0, 0);
@@ -1133,6 +1474,7 @@ data load_data_augment(char **paths, int n, int m, char **labels, int k, tree *h
     d.shallow = 0;
     d.X = load_image_augment_paths(paths, n, use_flip, min, max, size, angle, aspect, hue, saturation, exposure);
     d.y = load_labels_paths(paths, n, labels, k, hierarchy);
+    // d.z = make_matrix(1,1);
     if(m) free(paths);
     return d;
 }
@@ -1172,6 +1514,7 @@ data concat_data(data d1, data d2)
     d.shallow = 1;
     d.X = concat_matrix(d1.X, d2.X);
     d.y = concat_matrix(d1.y, d2.y);
+    // d.z = concat_matrix(d1.z, d2.z);
     return d;
 }
 
@@ -1249,6 +1592,17 @@ void get_next_batch(data d, int n, int offset, float *X, float *y)
         int index = offset + j;
         memcpy(X+j*d.X.cols, d.X.vals[index], d.X.cols*sizeof(float));
         memcpy(y+j*d.y.cols, d.y.vals[index], d.y.cols*sizeof(float));
+    }
+}
+
+void get_next_batch_aug(data d, int n, int offset, float *X, float *y , float* z)
+{
+    int j;
+    for(j = 0; j < n; ++j){
+        int index = offset + j;
+        memcpy(X+j*d.X.cols, d.X.vals[index], d.X.cols*sizeof(float));
+        memcpy(y+j*d.y.cols, d.y.vals[index], d.y.cols*sizeof(float));
+        // memcpy(z+j*d.z.cols, d.z.vals[index], d.z.cols*sizeof(float));
     }
 }
 

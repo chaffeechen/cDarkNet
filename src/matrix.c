@@ -8,9 +8,19 @@
 
 void free_matrix(matrix m)
 {
-    int i;
-    for(i = 0; i < m.rows; ++i) free(m.vals[i]);
-    free(m.vals);
+    if (m.vals != NULL) {
+        int i;
+        for(i = 0; i < m.rows; ++i) {
+            if( m.vals[i] != NULL ) {
+                free(m.vals[i]);
+                m.vals[i] = NULL;
+            }
+        }
+        if ( m.vals != NULL ) {
+            free(m.vals);
+            m.vals = NULL;
+        }
+    }
 }
 
 float matrix_topk_accuracy(matrix truth, matrix guess, int k)

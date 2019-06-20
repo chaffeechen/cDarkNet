@@ -138,6 +138,7 @@ typedef enum {
     XNOR,
     REGION,
     YOLO,
+    YOLO2,
     ISEG,
     REORG,
     REORG_OLD,
@@ -646,6 +647,7 @@ typedef struct image {
 // box.h
 typedef struct box {
     float x, y, w, h;
+    // int trust_type;//++ aug_data 20190619
 } box;
 
 // box.h
@@ -669,14 +671,18 @@ typedef struct data {
     int w, h;
     matrix X;
     matrix y;
+    // matrix z;//++aug_data 20190619
     int shallow;
     int *num_boxes;
     box **boxes;
 } data;
 
 // data.h
+/*
+++ DETECTION_AUG_DATA to support data with low accuracy
+*/
 typedef enum {
-    CLASSIFICATION_DATA, DETECTION_DATA, CAPTCHA_DATA, REGION_DATA, IMAGE_DATA, COMPARE_DATA, WRITING_DATA, SWAG_DATA, TAG_DATA, OLD_CLASSIFICATION_DATA, STUDY_DATA, DET_DATA, SUPER_DATA, LETTERBOX_DATA, REGRESSION_DATA, SEGMENTATION_DATA, INSTANCE_DATA, ISEG_DATA
+    CLASSIFICATION_DATA, DETECTION_DATA, CAPTCHA_DATA, REGION_DATA, IMAGE_DATA, COMPARE_DATA, WRITING_DATA, SWAG_DATA, TAG_DATA, OLD_CLASSIFICATION_DATA, STUDY_DATA, DET_DATA, SUPER_DATA, LETTERBOX_DATA, REGRESSION_DATA, SEGMENTATION_DATA, INSTANCE_DATA, ISEG_DATA, DETECTION_AUG_DATA
 } data_type;
 
 // data.h
@@ -723,6 +729,7 @@ typedef struct box_label {
     int id;
     float x, y, w, h;
     float left, right, top, bottom;
+    int trust_type;//20190619 aug_data
 } box_label;
 
 // list.h
@@ -771,6 +778,8 @@ LIB_API void reset_rnn(network *net);
 LIB_API float *network_predict_image(network *net, image im);
 LIB_API float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, network *existing_net);
 LIB_API void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear, int dont_show, int calc_map, int mjpeg_port);
+//++ DETECTION_AUG_DATA
+LIB_API void train_detector2(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear, int dont_show, int calc_map, int mjpeg_port);
 LIB_API void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh,
     float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile);
 /*
