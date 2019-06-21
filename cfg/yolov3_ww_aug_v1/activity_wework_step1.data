@@ -1,6 +1,6 @@
 classes= 10
 train  = /home/ubuntu/CV/data/wework_activity/Scene_aug/train.txt
 valid  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/test.txt
-names =  /home/ubuntu/darknet/cfg/yolov3_ww_aug/activity_wework.names
+names =  /home/ubuntu/darknet/cfg/yolov3_ww_aug_v1/activity_wework.names
 backup = /home/ubuntu/darknet/backup/ww_aug
 

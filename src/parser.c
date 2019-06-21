@@ -406,6 +406,8 @@ layer parse_yolo2(list *options, size_params params)
     l.learning_rate_scale = option_find_float_quiet(options, "learning_rate_scale", 1);
     l.object_scale = option_find_float_quiet(options,"object_scale",1);
     l.noobject_scale = option_find_float_quiet(options,"noobject_scale",1);
+    //only yolo2 has this param, in order to avoid imbalance of untrusted data
+    l.aug_data_scale = option_find_float_quiet(options,"aug_data_scale",1);
 
     char *map_file = option_find_str(options, "map", 0);
     if (map_file) l.map = read_map(map_file);

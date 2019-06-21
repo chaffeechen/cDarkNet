@@ -381,6 +381,7 @@ void forward_yolo2_layer(const layer l, network_state state)
     float avg_anyobj = 0;
     int count = 0;
     int class_count = 0;
+    float aug_data_scale = l.aug_data_scale > 0 ? l.aug_data_scale:1.0;//++20190620
     *(l.cost) = 0;
     for (b = 0; b < l.batch; ++b) {
         for (j = 0; j < l.h; ++j) {
@@ -454,11 +455,14 @@ void forward_yolo2_layer(const layer l, network_state state)
             float coord_bp_scale = 1.0;
             // float obj_bp_scale   = 1.0;
 
+
             if( trust_type == 0 ) {//also should be trust...
             } else if ( trust_type == 1 ) { //only coord and obj should be trust
+                coord_bp_scale = aug_data_scale;
                 class_bp_scale = 0.0;
             } else if ( trust_type == 2 ) { //only class and obj should be trust
                 coord_bp_scale = 0.0;
+                class_bp_scale = aug_data_scale;
             } else {
                 //all should be trust...
             }
