@@ -1488,7 +1488,7 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
             box_label *truth = read_boxes(labelpath, &num_labels);
             int i, j;
             for (j = 0; j < num_labels; ++j) {
-                truth_classes_count[truth[j].id]++;
+                truth_classes_count[ truth[j].id > (classes-1) ? classes-1:truth[j].id ]++;//trim
             }
 
             // difficult
@@ -1541,15 +1541,16 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
                                 if (current_iou > max_iou) {
                                     max_iou = current_iou;
                                     truth_index = unique_truth_count + j;
+                                    truth_class_id = truth[j].id;
                                 }
                             } 
-                            // else if ( current_iou > iou_thresh ) {
-                            //     flag_pass_iou_thresh = 1;
-                            //     if ( current_iou > max_iou_pass) {
-                            //         max_iou_pass = current_iou;
-                            //         truth_class_id = truth[j].id;
-                            //     }
-                            // }
+                            else if ( current_iou > iou_thresh ) {//找到了与当前预测框对应的groundtruth
+                                flag_pass_iou_thresh = 1;
+                                if ( current_iou > max_iou_pass) {
+                                    max_iou_pass = current_iou;
+                                    truth_class_id = truth[j].id;
+                                }
+                            }
 
                             //++ probe of detection
                             if (current_iou > iou_thresh && class_id == 0 ) {
@@ -1594,6 +1595,12 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
                                 fp_for_thresh++;
                                 fp_for_thresh_cls[class_id]++;
                             }
+
+                            if ( truth_class_id >= 0 && class_id >= 0 ) {//只记录那些大于阈值的，去判断究竟归到那个类别了
+                                cmatrix[ truth_class_id > (classes - 1) ? (classes-1): truth_class_id ][class_id] += 1.0;
+                            }
+
+
 
                         }
 
@@ -1768,6 +1775,14 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
         float cls_f1_score = 2.F * cls_precision * cls_recall / (cls_precision + cls_recall);
         printf(" for thresh = %1.2f, class = %d, precision = %1.2f, recall = %1.2f, F1-score = %1.2f ,TP = %d, FP = %d , FN = %d\n",
         thresh_calc_avg_iou, i ,cls_precision, cls_recall, cls_f1_score, tp_for_thresh_cls[i] , fp_for_thresh_cls[i] , truth_classes_count[i] - tp_for_thresh_cls[i] );
+    }
+
+    printf("##confusion matrix##\n");
+    for ( i = 0 ; i < classes ; i++ ) {
+        for ( j = 0 ; j < classes ; j++ ) {
+            printf(" %1.2f", cmatrix[i][j] );
+        }
+        printf("\n");
     }
 
     // printf(" for thresh = %0.2f, TP = %d, FP = %d, FN = %d, average IoU = %2.2f %% \n",

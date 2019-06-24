@@ -309,6 +309,7 @@ float *parse_yolo_class_weights(char *a , int num )
             int val = atof(a);
             class_weights[i] = val;
             a = strchr(a, ',') + 1;
+            printf("---Getting weights for class %d = %f \n", i , class_weights[i] );
         }
     }
     return class_weights;

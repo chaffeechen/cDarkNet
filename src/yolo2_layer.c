@@ -106,7 +106,7 @@ layer make_yolo2_layer2(int batch, int w, int h, int n, int total, int *mask , f
     if( class_weights ) l.class_weights = class_weights;
     else {
         l.class_weights = (float*)calloc(classes,sizeof(float));
-        for(i = 0; i < n; ++i){
+        for(i = 0; i < classes; ++i){//存在问题
             l.class_weights[i] = 1.0;
         }
     }
