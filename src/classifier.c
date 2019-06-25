@@ -29,6 +29,7 @@ void draw_train_loss(IplImage* img, int img_size, float avg_loss, float max_img_
 #endif
 
 float validate_classifier_single(char *datacfg, char *filename, char *weightfile, network *existing_net, int topk_custom);
+float validate_classifier_single2(char *datacfg, char *filename, char *weightfile, network *existing_net, float thresh ,int topk_custom);
 
 float *get_regression_values(char **labels, int n)
 {
@@ -172,8 +173,8 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         int draw_precision = 0;
         if (calc_topk && (i >= calc_topk_for_each || i == net.max_batches)) {
             iter_topk = i;
-            topk = validate_classifier_single(datacfg, cfgfile, weightfile, &net, 5); // calc TOP5
-            printf("\n accuracy TOP5 = %f \n", topk);
+            topk = validate_classifier_single2(datacfg, cfgfile, weightfile, &net, 0.5 , 2); // calc TOP5
+            printf("\n accuracy TOP2 = %f \n", topk);
             draw_precision = 1;
         }
 
@@ -620,7 +621,164 @@ float validate_classifier_single(char *datacfg, char *filename, char *weightfile
     return topk_result;
 }
 
-//multi scale of image
+/*
+++ 20190625 
+validate_classifier_single2
+增加true postive/false positive/precision/recall/F1-score threshold...
+*/
+float validate_classifier_single2(char *datacfg, char *filename, char *weightfile, network *existing_net, float thresh ,int topk_custom)
+{
+    int i, j;
+    network net;
+    int old_batch = -1;
+
+    if (existing_net) {
+        net = *existing_net;    // for validation during training
+        old_batch = net.batch;
+        set_batch_network(&net, 1);
+    }
+    else {
+        net = parse_network_cfg_custom(filename, 1, 0);
+        if (weightfile) {
+            load_weights(&net, weightfile);
+        }
+        //set_batch_network(&net, 1);
+        fuse_conv_batchnorm(net);
+        calculate_binary_weights(net);
+    }
+    srand(time(0));
+
+    list *options = read_data_cfg(datacfg);
+
+    char *label_list = option_find_str(options, "labels", "data/labels.list");
+    char *leaf_list = option_find_str(options, "leaves", 0);
+    if(leaf_list) change_leaves(net.hierarchy, leaf_list);
+    char *valid_list = option_find_str(options, "valid", "data/train.list");
+    int classes = option_find_int(options, "classes", 2);
+    int topk = option_find_int(options, "top", 1);
+    if (topk_custom > 0) topk = topk_custom;    // for validation during training
+    if (topk > classes) topk = classes;
+    printf(" TOP calculation...\n");
+
+    //++20190625 chaffee
+    int tp = 0, fp = 0, fn = 0;
+    float precision = 0.0, recall = 0.0, F1 = 0.0;
+    int *tp_cls = (int*)calloc(classes,sizeof(int));
+    int *fp_cls = (int*)calloc(classes,sizeof(int));
+    int *fn_cls = (int*)calloc(classes,sizeof(int));
+    float *precision_cls = (float*)calloc(classes,sizeof(float));
+    float *recall_cls = (float*)calloc(classes,sizeof(float));
+    float *F1_cls = (float*)calloc(classes,sizeof(float));
+
+    char **labels = get_labels(label_list);
+    list *plist = get_paths(valid_list);
+
+    char **paths = (char **)list_to_array(plist);
+    int m = plist->size;
+    free_list(plist);
+
+    float avg_acc = 0;
+    float avg_topk = 0;
+
+    float* avg_acc_cls = (float*)calloc(classes,sizeof(float));
+    float* avg_topk_cls = (float*)calloc(classes,sizeof(float));
+    float* num_cls = (float*)calloc(classes,sizeof(float));
+    for(i=0 ; i < classes ; ++i ) {
+        num_cls[classes] = 0;
+    }
+
+    int* indexes = (int*)calloc(topk, sizeof(int));
+
+    for(i = 0; i < m; ++i){
+        int class_id = -1;
+        char *path = paths[i];
+        for(j = 0; j < classes; ++j){
+            if(strstr(path, labels[j])){//根据文件名标柱对应的classid
+                class_id = j;
+                break;
+            }
+        }
+        image im = load_image_color(paths[i], 0, 0);
+        image resized = resize_min(im, net.w);
+        image crop = crop_image(resized, (resized.w - net.w)/2, (resized.h - net.h)/2, net.w, net.h);
+        //show_image(im, "orig");
+        //show_image(crop, "cropped");
+        //cvWaitKey(0);
+        float *pred = network_predict(net, crop.data);
+        if(net.hierarchy) hierarchy_predictions(pred, net.outputs, net.hierarchy, 1);
+
+        if(resized.data != im.data) free_image(resized);
+        free_image(im);
+        free_image(crop);
+        top_k(pred, classes, topk, indexes);
+
+        if ( class_id > 0) {//防止意外
+            num_cls[class_id] += 1.0;
+
+            if(indexes[0] == class_id) {
+                avg_acc += 1;
+                avg_acc_cls[class_id] += 1.0;
+            }
+            for(j = 0; j < topk; ++j){
+                if(indexes[j] == class_id) {
+                    avg_topk += 1;
+                    avg_topk_cls[class_id] += 1.0;
+                }
+            }
+
+            if ( indexes[0] == class_id && pred[class_id] >= thresh ) {
+                tp++;
+                tp_cls[class_id]++;
+            } else if ( indexes[0] == class_id && pred[class_id] < thresh ) {
+                fn++;
+                fn_cls[class_id]++;
+            } else if ( indexes[0] != class_id && pred[class_id] >= thresh ) {
+                fp++;
+                fp_cls[class_id]++;
+            } else {//没有正确识别
+                fn++;
+                fn_cls[class_id]++;
+            }
+        }
+        printf(".");
+        // if (existing_net) printf("\r");
+        // else printf("\n");
+        // printf("%d: top 1: %f, top %d: %f", i, avg_acc/(i+1), topk, avg_topk/(i+1));
+    }
+    
+    if (existing_net) {
+        set_batch_network(&net, old_batch);
+    }
+    float topk_result = avg_topk / i;
+
+    precision = ((float) (1.0*tp)) / (tp + fp);
+    recall = ((float)(1.0*tp)) / ( tp + fn );
+    F1  = 2.F * precision * recall / (precision + recall);
+    printf("\n");
+    for ( i = 0 ; i < classes ; i++ ) {
+        precision_cls[i] = ((float) (1.0*tp_cls[i])) / (tp_cls[i] + fp_cls[i]);
+        recall_cls[i] = ((float)(1.0*tp_cls[i])) / ( tp_cls[i] + fn_cls[i] );
+        F1_cls[i]  = 2.F * precision_cls[i] * recall_cls[i] / (precision_cls[i] + recall_cls[i]);
+        printf("classid = %d, %f: top 1, %f: top %d, %f: precision, %f: recall, %f: F1-score\n", i , avg_acc_cls[i]/num_cls[i] , avg_topk_cls[i]/num_cls[i] , topk , precision_cls[i], recall_cls[i], F1_cls[i] );
+    }
+
+    printf("%f: precision, %f: recall, %f: F1-score\n", precision, recall, F1 );
+    printf("Top 1: %f, top %d: %f\n", ((float)avg_acc)/((float)m), topk, ((float)avg_topk)/((float)m+1.0));
+
+    free(tp_cls);
+    free(fp_cls);
+    free(fn_cls);
+    free(precision_cls);
+    free(recall_cls);
+    free(F1_cls);
+    free(avg_acc_cls);
+    free(avg_topk_cls);
+    free(num_cls);
+
+    return topk_result;
+}
+
+//multi scale of image 并且进行flip，多次predict的结果加权（这里仅累加）显示
 void validate_classifier_multi(char *datacfg, char *filename, char *weightfile)
 {
     int i, j;
@@ -1273,6 +1431,7 @@ void run_classifier(int argc, char **argv)
 
     int dont_show = find_arg(argc, argv, "-dont_show");
     int calc_topk = find_arg(argc, argv, "-topk");
+
     int cam_index = find_int_arg(argc, argv, "-c", 0);
     int top = find_int_arg(argc, argv, "-t", 0);
     int clear = find_arg(argc, argv, "-clear");
@@ -1290,9 +1449,10 @@ void run_classifier(int argc, char **argv)
     else if(0==strcmp(argv[2], "threat")) threat_classifier(data, cfg, weights, cam_index, filename);
     else if(0==strcmp(argv[2], "test")) test_classifier(data, cfg, weights, layer);
     else if(0==strcmp(argv[2], "label")) label_classifier(data, cfg, weights);
-    else if(0==strcmp(argv[2], "valid")) validate_classifier_single(data, cfg, weights, NULL, -1);
-    else if(0==strcmp(argv[2], "validmulti")) validate_classifier_multi(data, cfg, weights);
-    else if(0==strcmp(argv[2], "valid10")) validate_classifier_10(data, cfg, weights);
+    else if(0==strcmp(argv[2], "valid")) validate_classifier_single(data, cfg, weights, NULL, -1);//nothing
+    else if(0==strcmp(argv[2], "valid2")) validate_classifier_single2(data, cfg, weights, NULL, 0.5 , -1);//20190625++F1 precision recall
+    else if(0==strcmp(argv[2], "validmulti")) validate_classifier_multi(data, cfg, weights);//多个scale尺度 x 2镜像 加权投票
+    else if(0==strcmp(argv[2], "valid10")) validate_classifier_10(data, cfg, weights);//5个shift x 2镜像 加权投票
     else if(0==strcmp(argv[2], "validcrop")) validate_classifier_crop(data, cfg, weights);
     else if(0==strcmp(argv[2], "validfull")) validate_classifier_full(data, cfg, weights);
 }
