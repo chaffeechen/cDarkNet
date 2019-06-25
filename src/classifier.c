@@ -684,7 +684,9 @@ float validate_classifier_single2(char *datacfg, char *filename, char *weightfil
     float* avg_topk_cls = (float*)calloc(classes,sizeof(float));
     float* num_cls = (float*)calloc(classes,sizeof(float));
     for(i=0 ; i < classes ; ++i ) {
-        num_cls[classes] = 0;
+        num_cls[i] = 0;
+        avg_acc_cls[i] = 0;
+        avg_topk_cls[i] = 0;
     }
 
     int* indexes = (int*)calloc(topk, sizeof(int));
