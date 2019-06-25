@@ -761,7 +761,7 @@ float validate_classifier_single2(char *datacfg, char *filename, char *weightfil
         precision_cls[i] = ((float) (1.0*tp_cls[i])) / (tp_cls[i] + fp_cls[i]);
         recall_cls[i] = ((float)(1.0*tp_cls[i])) / ( tp_cls[i] + fn_cls[i] );
         F1_cls[i]  = 2.F * precision_cls[i] * recall_cls[i] / (precision_cls[i] + recall_cls[i]);
-        printf("classid = %d, %f: top 1, %f: top %d, %f: precision, %f: recall, %f: F1-score\n", i , avg_acc_cls[i]/num_cls[i] , avg_topk_cls[i]/num_cls[i] , topk , precision_cls[i], recall_cls[i], F1_cls[i] );
+        printf("classid = %d, %f: top 1, %f: top %d, %f: precision, %f: recall, %f: F1-score, %d: Total num\n", i , avg_acc_cls[i]/num_cls[i] , avg_topk_cls[i]/num_cls[i] , topk , precision_cls[i], recall_cls[i], F1_cls[i] , (int)(num_cls[i]) );
     }
 
     printf("%f: precision, %f: recall, %f: F1-score\n", precision, recall, F1 );
