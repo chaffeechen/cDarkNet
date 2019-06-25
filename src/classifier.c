@@ -620,6 +620,7 @@ float validate_classifier_single(char *datacfg, char *filename, char *weightfile
     return topk_result;
 }
 
+//multi scale of image
 void validate_classifier_multi(char *datacfg, char *filename, char *weightfile)
 {
     int i, j;
