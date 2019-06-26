@@ -1430,10 +1430,17 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
     int *tp_for_thresh_cls = (int*)calloc(classes, sizeof(int));
     int *fp_for_thresh_cls = (int*)calloc(classes, sizeof(int));
     float **cmatrix = (float**)calloc(classes, sizeof(float*));
+    //--initialization
     for(i = 0; i < classes; i++ ) {
         cmatrix[i] = (float*)calloc(classes, sizeof(float) );
-        for( j = 0; j < classes; j++ ) cmatrix[i][j] = 0;
     }
+
+    float *top1_acc_cls = (float*)calloc(classes,sizeof(float));
+    float *topk_acc_cls = (float*)calloc(classes,sizeof(float));
+    float *truth_topk_cls_count = (float*)calloc(classes,sizeof(float));
+    float top1_acc = 0.0, topk_acc = 0.0;
+    int topk = 2;
+    int* indexes = (int*)calloc(topk, sizeof(int));
 
     box_prob* detections = (box_prob*)calloc(1, sizeof(box_prob));
     int detections_count = 0;
@@ -1448,6 +1455,8 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
         thr[t] = load_data_in_thread(args);
     }
     time_t start = time(0);
+
+    //++++++++++++++++++++++++++++
     for (i = nthreads; i < m + nthreads; i += nthreads) {
         fprintf(stderr, "\r%d", i);
         for (t = 0; t < nthreads && i + t - nthreads < m; ++t) {
@@ -1461,6 +1470,7 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
             args.resized = &buf_resized[t];
             thr[t] = load_data_in_thread(args);
         }
+        //+++++++++++
         for (t = 0; t < nthreads && i + t - nthreads < m; ++t) {
             const int image_index = i + t - nthreads;
             char *path = paths[image_index];
@@ -1506,11 +1516,17 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
 
             const int checkpoint_detections_count = detections_count;
 
+            // 这里我们固定死了topk的数量，后续可以考虑设置为参数进行使用
+
             for (i = 0; i < nboxes; ++i) {//遍历所有检测出的结果
 
                 int class_id;
                 int detected_truth_index = -1; //20190623 index used for detection only to show whether a target is detected regardless his label
                 float detected_max_iou = 0;
+
+                //  求出排在前面的k个class的index
+                float *prob_mir = dets[i].prob;
+                top_k(prob_mir, classes, topk, indexes);
                 
                 for (class_id = 0; class_id < classes; ++class_id) {//对每个检测出的结果，遍历所有类别
                     float prob = dets[i].prob[class_id];
@@ -1531,6 +1547,7 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
                         int flag_pass_iou_thresh = 0;
                         float max_iou_pass = 0;
                         int truth_class_id = -1;
+                        int det_truth_class_id = -1;
                         for (j = 0; j < num_labels; ++j)//遍历所有标注的groundtruth，找出与当前预测结果iou重合度最大的groundtruth，如果满足阈值则标记下该groundtruth的id
                         {//找与预测框匹配的groundtruth box
                             box t = { truth[j].x, truth[j].y, truth[j].w, truth[j].h };
@@ -1557,6 +1574,7 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
                                 if (current_iou > detected_max_iou) {
                                     detected_max_iou = current_iou;
                                     detected_truth_index = unique_truth_count + j;
+                                    det_truth_class_id = truth[j].id;
                                 }
                             }
                         }
@@ -1611,6 +1629,19 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
                             //     if (detections[z].unique_truth_index == truth_index) {
                             //         found = 1; break;
                             //     }
+                            if ( det_truth_class_id > -1 ) {
+                                truth_topk_cls_count[det_truth_class_id] += 1.0;
+                                if( indexes[0] == det_truth_class_id ) {
+                                    top1_acc += 1.0;
+                                    top1_acc_cls[det_truth_class_id] += 1.0;
+                                }
+                                for ( j = 0; j < topk ; j++ ) {
+                                    if ( indexes[j] == det_truth_class_id ) {
+                                        topk_acc += 1.0;
+                                        topk_acc_cls[det_truth_class_id] += 1.0;
+                                    }
+                                }
+                            }
 
                             if (detected_truth_index > -1 && found == 0) {
                                 detected_avg_iou += detected_max_iou;
@@ -1776,7 +1807,6 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
         printf(" for thresh = %1.2f, class = %d, precision = %1.2f, recall = %1.2f, F1-score = %1.2f ,TP = %d, FP = %d , FN = %d\n",
         thresh_calc_avg_iou, i ,cls_precision, cls_recall, cls_f1_score, tp_for_thresh_cls[i] , fp_for_thresh_cls[i] , truth_classes_count[i] - tp_for_thresh_cls[i] );
     }
-
     printf("##confusion matrix##\n");
     for ( i = 0 ; i < classes ; i++ ) {
         for ( j = 0 ; j < classes ; j++ ) {
@@ -1784,6 +1814,17 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
         }
         printf("\n");
     }
+
+    printf("##TopK Acc for each class result##\n");
+    float total_truth_topk_count = 0;
+    for ( i=0; i < classes ; i++ ) {
+        printf(" for thresh = %1.2f, class = %d, top1 = %1.4f, top%d = %1.4f , Num = %d\n", 
+            thresh_calc_avg_iou , i , top1_acc_cls[i]/truth_topk_cls_count[i] ,  topk , topk_acc_cls[i]/truth_topk_cls_count[i], (int)(truth_topk_cls_count[i]));
+        total_truth_topk_count += truth_topk_cls_count[i];
+    }
+    printf("##TopK Acc##\n");
+    printf(" for thresh = %1.2f, top1 = %1.4f, top%d = %1.4f , Num = %d\n", 
+            thresh_calc_avg_iou , top1_acc/total_truth_topk_count,  topk , topk_acc/total_truth_topk_count, (int)(total_truth_topk_count));
 
     // printf(" for thresh = %0.2f, TP = %d, FP = %d, FN = %d, average IoU = %2.2f %% \n",
     //     thresh_calc_avg_iou, tp_for_thresh, fp_for_thresh, unique_truth_count - tp_for_thresh, avg_iou * 100);
@@ -1805,6 +1846,10 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
     //++free 20190621
     free(tp_for_thresh_cls);
     free(fp_for_thresh_cls);
+    free(indexes);
+    free(top1_acc_cls);
+    free(topk_acc_cls);
+    free(truth_topk_cls_count);
 
     fprintf(stderr, "Total Detection Time: %f Seconds\n", (double)(time(0) - start));
     if (reinforcement_fd != NULL) fclose(reinforcement_fd);

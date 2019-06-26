@@ -4,5 +4,5 @@ valid  = /home/ubuntu/CV/data/wework_activity/Scene_4/class/test.txt
 labels = /home/ubuntu/darknet/cfg/darknet_class_v1/label.list
 names =  /home/ubuntu/darknet/cfg/darknet_class_v1/label.names
 backup = /home/ubuntu/darknet/backup/ww_class
-top = 5
+top = 2
 
