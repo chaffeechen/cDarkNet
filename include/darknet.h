@@ -571,6 +571,8 @@ typedef struct network {
     float aspect;
     float exposure;
     float saturation;
+    float degP;//noise image position
+    float degV;//noise image value
     float hue;
     int random;
     int track;
@@ -718,6 +720,8 @@ typedef struct load_args {
     float saturation;
     float exposure;
     float hue;
+    float degP;
+    float degV;
     data *d;
     image *im;
     image *resized;
@@ -790,6 +794,13 @@ LIB_API void test_detector(char *datacfg, char *cfgfile, char *weightfile, char 
     In order to seperate the decision of whether bb contains a target and which class bb belongs to.
 */
 LIB_API void test_detector_double_thresh(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh, float iou_thresh,
+    float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile);
+/*
+    Chaffee@20190626
+    +func
+    In order to save images and results from list of files
+*/
+LIB_API void test_detector_double_thresh_list(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh, float iou_thresh,
     float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile);
 LIB_API int network_width(network *net);
 LIB_API int network_height(network *net);

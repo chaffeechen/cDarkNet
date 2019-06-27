@@ -768,6 +768,8 @@ void parse_net_options(list *options, network *net)
     net->exposure = option_find_float_quiet(options, "exposure", 1);
     net->hue = option_find_float_quiet(options, "hue", 0);
     net->power = option_find_float_quiet(options, "power", 4);
+    net->degP = option_find_float_quiet(options, "degP", 0.05);//++20190627 for noise image
+    net->degV = option_find_float_quiet(options, "degV" , 0.1);
 
     if(!net->inputs && !(net->h && net->w && net->c)) error("No input parameters supplied");
 

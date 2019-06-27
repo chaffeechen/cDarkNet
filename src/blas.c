@@ -307,7 +307,7 @@ void softmax(float *input, int n, float temp, float *output, int stride)
     }
 }
 
-
+// softmax_cpu   (net.input,l.inputs/l.groups, l.batch, l.inputs, l.groups, l.inputs/l.groups, 1, l.temperature, l.output);
 void softmax_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
 {
     int g, b;

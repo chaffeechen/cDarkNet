@@ -64,6 +64,8 @@ void saturate_exposure_image(image im, float sat, float exposure);
 void hsv_to_rgb(image im);
 //LIB_API void rgbgr_image(image im);
 void constrain_image(image im);
+//++Chaffee 20190627
+void noise_image(image im , float degP , float degV );
 void composite_3d(char *f1, char *f2, char *out, int delta);
 int best_3d_shift_r(image a, image b, int min, int max);
 

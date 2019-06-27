@@ -1076,6 +1076,22 @@ void constrain_image(image im)
     }
 }
 
+void noise_image(image im , float degP , float degV )
+{
+     int i;
+    for(i = 0; i < im.w*im.h*im.c; ++i){
+        float rd = rand_uniform_strong(0,1);
+        if( rd > degP ) {
+            //Pass
+        } else {
+            float rdv = rand_uniform_strong(0,degV);
+            im.data[i] += rdv;
+            if( im.data[i] < 0 ) im.data[i] = 0;
+            if(im.data[i] > 1) im.data[i] = 1;
+        }
+    }   
+}
+
 void normalize_image(image p)
 {
     int i;

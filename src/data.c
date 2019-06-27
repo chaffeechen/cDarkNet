@@ -996,6 +996,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
         float dy = ((float)ptop /oh)/sy;
 
         image ai = image_data_augmentation(src, w, h, pleft, ptop, swidth, sheight, flip, jitter, dhue, dsat, dexp);
+        // noise_image(ai, 0.1 , 0.1);
         d.X.vals[i] = ai.data;
 
         fill_truth_detection(filename, boxes, d.y.vals[i], classes, flip, dx, dy, 1./sx, 1./sy, w, h);
@@ -1025,7 +1026,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     return d;
 }
 
-data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, float degP, float degV, int mini_batch, int track, int augment_speed)
 {
     c = c ? c : 3;
     char **random_paths;
@@ -1098,6 +1099,7 @@ data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, in
         float dy = ((float)ptop /oh)/sy;
 
         image ai = image_data_augmentation(src, w, h, pleft, ptop, swidth, sheight, flip, jitter, dhue, dsat, dexp);
+        noise_image(ai, degP , degV);
         d.X.vals[i] = ai.data;
 
         //different function
@@ -1174,6 +1176,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
         image sized = resize_image(cropped, w, h);
         if (flip) flip_image(sized);
         distort_image(sized, dhue, dsat, dexp);
+        // noise_image(sized, 0.1 , 0.1);
         //random_distort_image(sized, hue, saturation, exposure);
         d.X.vals[i] = sized.data;
 
@@ -1205,7 +1208,7 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int c, int bo
     return d;
 }
 
-data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, float degP, float degV ,int mini_batch, int track, int augment_speed)
 {
     c = c ? c : 3;
     char **random_paths;
@@ -1270,6 +1273,7 @@ data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, in
         image sized = resize_image(cropped, w, h);
         if (flip) flip_image(sized);
         distort_image(sized, dhue, dsat, dexp);
+        noise_image(sized, degP , degV);
         //random_distort_image(sized, hue, saturation, exposure);
         d.X.vals[i] = sized.data;
 
@@ -1339,7 +1343,7 @@ void *load_thread(void *ptr)
     } else if (a.type == TAG_DATA){
         *a.d = load_data_tag(a.paths, a.n, a.m, a.classes, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
     } else if (a.type == DETECTION_AUG_DATA){
-        *a.d = load_data_aug_detection(a.n, a.paths, a.m, a.w, a.h, a.c, a.num_boxes, a.classes, a.flip, a.jitter, a.hue, a.saturation, a.exposure, a.mini_batch, a.track, a.augment_speed);
+        *a.d = load_data_aug_detection(a.n, a.paths, a.m, a.w, a.h, a.c, a.num_boxes, a.classes, a.flip, a.jitter, a.hue, a.saturation, a.exposure, a.degP, a.degV, a.mini_batch, a.track, a.augment_speed);
     }
     free(ptr);
     return 0;
