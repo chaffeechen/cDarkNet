@@ -58,11 +58,16 @@ void resize_shortcut_layer(layer *l, int w, int h)
 
 void forward_shortcut_layer(const layer l, network_state state)
 {
+    /*
+    state
+    - input 当前的输入
+    - net.layers[l.index].output 所谓from layer给到的输入
+    */
     if (l.w == l.out_w && l.h == l.out_h && l.c == l.out_c) {
         int size = l.batch * l.w * l.h * l.c;
         int i;
         #pragma omp parallel for
-        for(i = 0; i < size; ++i)
+        for(i = 0; i < size; ++i)//当前的input与先前之和 
             l.output[i] = state.input[i] + state.net.layers[l.index].output[i];
     }
     else {
@@ -74,9 +79,9 @@ void forward_shortcut_layer(const layer l, network_state state)
 
 void backward_shortcut_layer(const layer l, network_state state)
 {
-    gradient_array(l.output, l.outputs*l.batch, l.activation, l.delta);
-    axpy_cpu(l.outputs*l.batch, 1, l.delta, 1, state.delta, 1);
-    shortcut_cpu(l.batch, l.out_w, l.out_h, l.out_c, l.delta, l.w, l.h, l.c, state.net.layers[l.index].delta);
+    gradient_array(l.output, l.outputs*l.batch, l.activation, l.delta);//activation层的残差
+    axpy_cpu(l.outputs*l.batch, 1, l.delta, 1, state.delta, 1);//传递给下一层的残差计算
+    shortcut_cpu(l.batch, l.out_w, l.out_h, l.out_c, l.delta, l.w, l.h, l.c, state.net.layers[l.index].delta);//同时，把残差传递给shortcut过来的那一层网络
 }
 
 #ifdef GPU

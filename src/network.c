@@ -269,11 +269,11 @@ void backward_network(network net, network_state state)
             state.delta = original_delta;
         }else{
             layer prev = net.layers[i-1];
-            state.input = prev.output;
-            state.delta = prev.delta;
+            state.input = prev.output;//当前层的输入是前一层的输出
+            state.delta = prev.delta;//当前层要输出的残差，是前一层的残差
         }
         layer l = net.layers[i];
-        if (l.stopbackward) break;
+        if (l.stopbackward) break;//frozen网络层
         l.backward(l, state);
     }
 }
@@ -638,11 +638,12 @@ float *network_predict(network net, float *input)
     return out;
 }
 
+//收集所有yolo层输出的结果
 int num_detections(network *net, float thresh)
 {
     int i;
     int s = 0;
-    for (i = 0; i < net->n; ++i) {
+    for (i = 0; i < net->n; ++i) {//收集所有yolo层输出的结果
         layer l = net->layers[i];
         if (l.type == YOLO) {
             s += yolo_num_detections(l, thresh);
@@ -661,7 +662,7 @@ detection *make_network_boxes(network *net, float thresh, int *num)
 {
     layer l = net->layers[net->n - 1];
     int i;
-    int nboxes = num_detections(net, thresh);
+    int nboxes = num_detections(net, thresh);//这里实现所有yolo层box的输出
     if (num) *num = nboxes;
     detection* dets = (detection*)calloc(nboxes, sizeof(detection));
     for (i = 0; i < nboxes; ++i) {

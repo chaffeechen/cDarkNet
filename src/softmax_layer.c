@@ -73,7 +73,7 @@ void forward_softmax_layer(const softmax_layer l, network_state net)
         l.cost[0] = sum_array(l.loss, l.batch*l.inputs);
     }
 }
-
+//将softmax的残差 传递给前一层网络
 void backward_softmax_layer(const softmax_layer l, network_state net)
 {
     axpy_cpu(l.inputs*l.batch, 1, l.delta, 1, net.delta, 1);

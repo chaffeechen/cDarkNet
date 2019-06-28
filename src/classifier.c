@@ -173,7 +173,7 @@ void train_classifier(char *datacfg, char *cfgfile, char *weightfile, int *gpus,
         int draw_precision = 0;
         if (calc_topk && (i >= calc_topk_for_each || i == net.max_batches)) {
             iter_topk = i;
-            topk = validate_classifier_single2(datacfg, cfgfile, weightfile, &net, 0.5 , 2); // calc TOP5
+            topk = validate_classifier_single(datacfg, cfgfile, weightfile, &net , 2); // calc TOP5
             printf("\n accuracy TOP2 = %f \n", topk);
             draw_precision = 1;
         }
@@ -683,11 +683,11 @@ float validate_classifier_single2(char *datacfg, char *filename, char *weightfil
     float* avg_acc_cls = (float*)calloc(classes,sizeof(float));
     float* avg_topk_cls = (float*)calloc(classes,sizeof(float));
     float* num_cls = (float*)calloc(classes,sizeof(float));
-    for(i=0 ; i < classes ; ++i ) {
-        num_cls[i] = 0;
-        avg_acc_cls[i] = 0;
-        avg_topk_cls[i] = 0;
-    }
+    // for(i=0 ; i < classes ; ++i ) {
+    //     num_cls[i] = 0;
+    //     avg_acc_cls[i] = 0;
+    //     avg_topk_cls[i] = 0;
+    // }//calloc has already zero the data field
 
     int* indexes = (int*)calloc(topk, sizeof(int));
 
