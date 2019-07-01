@@ -713,8 +713,9 @@ float validate_classifier_single2(char *datacfg, char *filename, char *weightfil
         free_image(im);
         free_image(crop);
         top_k(pred, classes, topk, indexes);
-
-        if ( class_id > 0) {//防止意外
+        
+        //class_id > 0 -> class_id >= 0 bug fix
+        if ( class_id >= 0) {//防止意外 
             num_cls[class_id] += 1.0;
 
             if(indexes[0] == class_id) {

@@ -18,14 +18,15 @@ void im2col_cpu(float* data_im,
      int ksize,  int stride, int pad, float* data_col)
 {
     int c,h,w;
-    int height_col = (height + 2*pad - ksize) / stride + 1;
-    int width_col = (width + 2*pad - ksize) / stride + 1;
+    int height_col = (height + 2*pad - ksize) / stride + 1;//输出图像的高度
+    int width_col = (width + 2*pad - ksize) / stride + 1;//输出图像的宽度
 
     int channels_col = channels * ksize * ksize;
     for (c = 0; c < channels_col; ++c) {
         int w_offset = c % ksize;
         int h_offset = (c / ksize) % ksize;
         int c_im = c / ksize / ksize;
+        // 在每个slide filter中，同一个offset位置的像素连续存储在一起，这些像素对应的filter kernel的值都是一致的
         for (h = 0; h < height_col; ++h) {
             for (w = 0; w < width_col; ++w) {
                 int im_row = h_offset + h * stride;
