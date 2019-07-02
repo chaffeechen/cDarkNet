@@ -1,5 +1,5 @@
 classes=10
-train  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/class/train2.txt
+train  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/class/train012.txt
 valid  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/class/test.txt
 labels = /home/ubuntu/darknet/cfg/darknet_class_v1/label.list
 names =  /home/ubuntu/darknet/cfg/darknet_class_v1/label.names

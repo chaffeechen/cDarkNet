@@ -1400,7 +1400,8 @@ pthread_t load_data(load_args args)
 data load_data_writing(char **paths, int n, int m, int w, int h, int out_w, int out_h)
 {
     if(m) paths = get_random_paths(paths, n, m);
-    char **replace_paths = find_replace_paths(paths, n, ".png", "-label.png");
+    // char **replace_paths = find_replace_paths(paths, n, ".png", "-label.png");
+    char **replace_paths = find_replace_paths(paths, n, ".jpg", "_label.jpg");
     data d = {0};
     d.shallow = 0;
     d.X = load_image_paths(paths, n, w, h);

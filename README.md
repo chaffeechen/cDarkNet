@@ -31,9 +31,16 @@ cDarkNet is modified by AlexeyAB's darknet
    In map2 mode, more error analysis can be seen.
    Detection result is shown by precision, recall and F1-score, of which objectness is used as a index to judge whether an object is detected.
    The additional results goes like this:
+
    ##raw classification result##
     for thresh = 0.25, precision = 0.29, recall = 0.16, F1-score = 0.21 
-    for thresh = 0.25, TP = 5208, FP = 12673, FN = 26798, average IoU = 20.01 % 
+    for thresh = 0.25, TP = 5208, FP = 12673, FN = 26798, average IoU = 20.01 %
+
    ##detection result##
     for thresh = 0.25, precision = 0.51, recall = 0.12, F1-score = 0.19 ,TP = 3778, FP = 3656 , FN = 28228, average IoU = 33.98 %
+
+    6. train valide2 function added
+      usage ./darknet classifier valid2 <same thing as usual>
+      In valid2 mode, more error analysis can be seen.
+      Each class will output its Top1 and Top2 accuracy result.
    

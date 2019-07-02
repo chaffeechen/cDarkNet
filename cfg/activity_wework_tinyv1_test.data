@@ -1,4 +1,4 @@
-classes= 10
+classes= 1
 train  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/train.txt
 valid  = /home/ubuntu/CV/data/wework_activity/Scene_1_2/test.txt
 names = cfg/activity_wework.names
