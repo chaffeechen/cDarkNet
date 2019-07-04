@@ -53,7 +53,7 @@ int check_mistakes;
 
 static int coco_ids[] = { 1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,31,32,33,34,35,36,37,38,39,40,41,42,43,44,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,67,70,72,73,74,75,76,77,78,79,80,81,82,84,85,86,87,88,89,90 };
 
-void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear, int dont_show, int calc_map, int mjpeg_port)
+void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear, int dont_show, int calc_map, int mjpeg_port , int mapType)
 {
     list *options = read_data_cfg(datacfg);
     char *train_images = option_find_str(options, "train", "data/train.txt");
@@ -161,7 +161,19 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     args.jitter = jitter;
     args.num_boxes = l.max_boxes;
     args.d = &buffer;
-    args.type = DETECTION_DATA;
+    //++20190704 根据训练类型给定图像倒入方式
+    if ( mapType == 0 ) {
+        args.type = DETECTION_DATA;    
+    } else if ( mapType == 1 ) {
+        args.type = DETECTION_C4_DATA;
+        assert(args.c == 4);
+    } else if ( mapType == 2 ) {
+        args.type = DETECTION_AUG_DATA;
+    } 
+    else {
+        args.type = DETECTION_DATA;
+    }
+    
     args.threads = 64;    // 16 or 64
 
     args.angle = net.angle;
@@ -302,7 +314,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
             //network net_combined = combine_train_valid_networks(net, net_map);
 
             iter_map = i;
-            mean_average_precision = validate_detector_map2(datacfg, cfgfile, weightfile, 0.25, 0.5, &net_map);// &net_combined);
+            mean_average_precision = validate_detector_map2(datacfg, cfgfile, weightfile, 0.25, 0.5, &net_map , mapType );// &net_combined);
             printf("\n mean_average_precision (mAP@0.5) = %f \n", mean_average_precision);
             draw_precision = 1;
         }
@@ -610,7 +622,7 @@ void train_detector2(char *datacfg, char *cfgfile, char *weightfile, int *gpus, 
 
             iter_map = i;
             // mean_average_precision = validate_detector_map(datacfg, cfgfile, weightfile, 0.25, 0.5, &net_map);// &net_combined);
-            mean_average_precision = validate_detector_map2(datacfg, cfgfile, weightfile, 0.25, 0.5, &net_map);// &net_combined);
+            mean_average_precision = validate_detector_map2(datacfg, cfgfile, weightfile, 0.25, 0.5, &net_map , 0 );// &net_combined);
             printf("\n mean_average_precision (mAP@0.5) = %f \n", mean_average_precision);
             draw_precision = 1;
         }
@@ -674,7 +686,6 @@ void train_detector2(char *datacfg, char *cfgfile, char *weightfile, int *gpus, 
         free_network(net_map);
     }
 }
-
 
 static int get_coco_image_id(char *filename)
 {
@@ -1355,7 +1366,7 @@ float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, floa
 }
 
 //thresh_calc_avg_iou=0.25 iou_thresh = 0.5
-float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, network *existing_net)
+float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, network *existing_net ,  int mapType )
 {
     int j;
     list *options = read_data_cfg(datacfg);
@@ -1420,7 +1431,18 @@ float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, flo
     args.w = net.w;
     args.h = net.h;
     args.c = net.c;
-    args.type = IMAGE_DATA;
+    if ( mapType == 0 ) {
+        args.type = IMAGE_DATA;    
+    } else if ( mapType == 1 ) {
+        args.type = IMAGE_C4_DATA;
+        assert( args.c == 4 );
+    } else if ( mapType == 2 ) {
+        args.type = IMAGE_DATA;
+    } 
+    else {
+        args.type = IMAGE_DATA;
+    }
+    
     //args.type = LETTERBOX_DATA;
 
     //const float thresh_calc_avg_iou = 0.24;
@@ -2618,15 +2640,20 @@ void run_detector(int argc, char **argv)
         printf("test2 used!\n");
         test_detector_double_thresh(datacfg, cfg, weights, filename, thresh, iou_thresh , hier_thresh, dont_show, ext_output, save_labels, outfile);
     }
-    else if (0 == strcmp(argv[2], "train")) train_detector(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port);
+    else if (0 == strcmp(argv[2], "train")) train_detector(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port, 0);
     else if (0 == strcmp(argv[2], "train2")) {
         printf("train2 DETECTION_AUG_DATA is used for training!\n");
-        train_detector2(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port);
+        train_detector(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port,2);
+    }
+    else if (0 == strcmp(argv[2], "train3")) {
+        printf("train3 input image channel is 4 for training!\n");
+        train_detector(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port , 1);
     }
     else if (0 == strcmp(argv[2], "valid")) validate_detector(datacfg, cfg, weights, outfile);
     else if (0 == strcmp(argv[2], "recall")) validate_detector_recall(datacfg, cfg, weights);
     else if (0 == strcmp(argv[2], "map")) validate_detector_map(datacfg, cfg, weights, thresh, iou_thresh, NULL);
-    else if (0 == strcmp (argv[2],"map2")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL);
+    else if (0 == strcmp (argv[2],"map2")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL,0);
+    else if (0 == strcmp (argv[2],"map3")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL, 1);//support 4 channel input only
     else if (0 == strcmp(argv[2], "calc_anchors")) calc_anchors(datacfg, num_of_clusters, width, height, show);
     else if (0 == strcmp(argv[2], "demo")) {
         list *options = read_data_cfg(datacfg);

@@ -66,6 +66,9 @@ void hsv_to_rgb(image im);
 void constrain_image(image im);
 //++Chaffee 20190627
 void noise_image(image im , float degP , float degV );
+//++Chaffee 20190704
+image merge_image(image im1 , image im2);
+
 void composite_3d(char *f1, char *f2, char *out, int delta);
 int best_3d_shift_r(image a, image b, int min, int max);
 
@@ -92,6 +95,7 @@ image make_empty_image(int w, int h, int c);
 image float_to_image(int w, int h, int c, float *data);
 image copy_image(image p);
 image load_image(char *filename, int w, int h, int c);
+image load_image_c4_data(char* filename , int w , int h , int c );
 //LIB_API image load_image_color(char *filename, int w, int h);
 image **load_alphabet();
 
@@ -99,6 +103,7 @@ image **load_alphabet();
 image get_image_from_stream(CvCapture* cap);
 image get_image_from_stream_cpp(CvCapture* cap);
 image ipl_to_image(IplImage* src);
+image ipls_to_image(IplImage* src , IplImage* bg);
 void save_cv_png(IplImage *img, const char *name);
 #endif
 //float get_pixel(image m, int x, int y, int c);

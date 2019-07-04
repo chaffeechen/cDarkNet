@@ -1237,7 +1237,7 @@ image ipl_to_image(IplImage* src)
     int c = src->nChannels;
     int step = src->widthStep;
     image out = make_image(w, h, c);
-    int i, j, k, count=0;;
+    int i, j, k, count=0;
 
     for(k= 0; k < c; ++k){
         for(i = 0; i < h; ++i){
@@ -1246,6 +1246,41 @@ image ipl_to_image(IplImage* src)
             }
         }
     }
+    return out;
+}
+
+//++ 20190703 Merge 3channel image and 1channel image into 4 channel image
+image ipls_to_image(IplImage* src, IplImage* bg)
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    unsigned char *databg = (unsigned char *)bg->imageData;
+
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+
+    assert( h == bg->height );
+    assert( w == bg->width );
+    assert( c == 3 && bg->nChannels == 1 );
+
+    image out = make_image(w, h, c+1);
+    int i, j, k, count=0;
+
+    for(k= 0; k < c; ++k){
+        for(i = 0; i < h; ++i){
+            for(j = 0; j < w; ++j){
+                out.data[count++] = data[i*step + j*c + k]/255.;
+            }
+        }
+    }
+
+    for(i = 0; i < h; ++i){
+        for(j = 0; j < w; ++j){
+            out.data[count++] = databg[i*step + j ]/255.;
+        }
+    }
+
     return out;
 }
 
@@ -1659,6 +1694,19 @@ void fill_image(image m, float s)
 {
     int i;
     for (i = 0; i < m.h*m.w*m.c; ++i) m.data[i] = s;
+}
+
+image merge_image(image im1 , image im2)
+{
+    assert( im1.w == im2.w && im1.h == im2.h );
+    image out = make_image(im1.w,im1.h, im1.c+im2.c);
+
+    int count = im1.w*im1.h*im1.c;
+    memcpy( out.data , im1.data , count*sizeof(float) );
+    float* pt = out.data + count;
+    count = im2.w*im2.h*im2.c;
+    memcpy( pt , im2.data , count*sizeof(float) );
+    return out;
 }
 
 void letterbox_image_into(image im, int w, int h, image boxed)
@@ -2138,6 +2186,22 @@ image load_image_stb(char *filename, int channels)
     }
     free(data);
     return im;
+}
+
+image load_image_c4_data(char* filename , int w , int h , int c )
+{
+    image out = make_empty_image( w , h , c );
+    image im1 = load_image( filename , w , h , 3);
+    char bgfilename[4096];
+    replace_image_to_bg(filename, bgfilename);
+    image im2 = load_image( bgfilename , w , h , 1 );
+
+    out = merge_image( im1 , im2 );
+
+    free_image(im1);
+    free_image(im2);
+
+    return out;
 }
 
 image load_image(char *filename, int w, int h, int c)

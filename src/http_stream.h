@@ -28,6 +28,10 @@ int get_stream_fps_cpp(CvCapture *cap);
 image image_data_augmentation(IplImage* ipl, int w, int h,
     int pleft, int ptop, int swidth, int sheight, int flip,
     float jitter, float dhue, float dsat, float dexp);
+//++ 20190703 merge 2 image into input with 4 channels
+image image_data_augmentation_merge_bg(IplImage* ipl, IplImage* iplbg ,int w, int h,
+    int pleft, int ptop, int swidth, int sheight, int flip,
+    float jitter, float dhue, float dsat, float dexp);
 
 image load_image_resize(char *filename, int w, int h, int c, image *im);
 #endif  // OPENCV

@@ -1110,8 +1110,143 @@ data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, in
     free(random_paths);
     return d;
 }
+/*
+++ 20190703
+Function using opencv
+*/
+data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+{
+    c = c ? c : 3;
+    char **random_paths;
+    if (track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
+    else random_paths = get_random_paths(paths, n, m);
+    int i;
+    data d = {0};
+    d.shallow = 0;
 
-#else    // OPENCV
+    d.X.rows = n;
+    d.X.vals = (float**)calloc(d.X.rows, sizeof(float*));
+    d.X.cols = h*w*c;
+
+    float r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+    float dhue = 0, dsat = 0, dexp = 0, flip = 0;
+    int augmentation_calculated = 0;
+
+    d.y = make_matrix(n, 5*boxes);//采用原始数据
+    // d.z = make_matrix(1,1);
+
+    for(i = 0; i < n; ++i){
+        const char *filename = random_paths[i];
+
+        int flag = (c >= 3);
+        IplImage *src, *bgmask;//++ bgmask the 4th channel
+        if ((src = cvLoadImage(filename, flag)) == 0)
+        {
+            fprintf(stderr, "Cannot load image \"%s\"\n", filename);
+            char buff[256];
+            sprintf(buff, "echo %s >> bad.list", filename);
+            system(buff);
+            if (check_mistakes) getchar();
+            continue;
+            //exit(0);
+        }
+
+        char bgfilename[4096];
+        replace_image_to_bg(filename, bgfilename);
+        if ((bgmask = cvLoadImage(bgfilename, 0)) == 0)
+        {
+            fprintf(stderr, "Cannot load image \"%s\"\n", bgfilename);
+            char buff[256];
+            sprintf(buff, "echo %s >> bad.list", bgfilename);
+            system(buff);
+            if (check_mistakes) getchar();
+            continue;
+            //exit(0);
+        }
+
+        int oh = src->height;
+        int ow = src->width;
+
+        int maskh = bgmask->height;
+        int maskw = bgmask->width;
+        int maskc = bgmask->nChannels;
+        //Assert  bgImage
+        if ( oh != maskh || ow != maskw || maskc != 1) {
+            printf(stderr, "Mask image not qualified: \"%s\" , %d , %d , %d \n", bgfilename , maskh , maskw , maskc );
+            char buff[256];
+            sprintf(buff, "echo %s >> bad.list", bgfilename);
+            system(buff);
+            cvReleaseImage(&src);
+            cvReleaseImage(&bgmask);
+            if (check_mistakes) getchar();
+            continue;
+        }
+
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
+
+        if(!augmentation_calculated || !track)
+        {
+            augmentation_calculated = 1;
+            r1 = random_float();
+            r2 = random_float();
+            r3 = random_float();
+            r4 = random_float();
+
+            dhue = rand_uniform_strong(-hue, hue);
+            dsat = rand_scale(saturation);
+            dexp = rand_scale(exposure);
+
+            flip = use_flip ? random_gen() % 2 : 0;
+        }
+
+        int pleft  = rand_precalc_random(-dw, dw, r1);
+        int pright = rand_precalc_random(-dw, dw, r2);
+        int ptop   = rand_precalc_random(-dh, dh, r3);
+        int pbot   = rand_precalc_random(-dh, dh, r4);
+
+        int swidth =  ow - pleft - pright;
+        int sheight = oh - ptop - pbot;
+
+        float sx = (float)swidth  / ow;
+        float sy = (float)sheight / oh;
+
+        float dx = ((float)pleft/ow)/sx;
+        float dy = ((float)ptop /oh)/sy;
+
+        image ai = image_data_augmentation_merge_bg(src, bgmask ,w, h, pleft, ptop, swidth, sheight, flip, jitter, dhue, dsat, dexp);
+        // noise_image(ai, 0.1 , 0.1);
+        d.X.vals[i] = ai.data;
+
+        fill_truth_detection(filename, boxes, d.y.vals[i], classes, flip, dx, dy, 1./sx, 1./sy, w, h);
+
+        /*
+        {
+            char buff[10];
+            sprintf(buff, "aug_%s_%d", random_paths[i], random_gen());
+            int t;
+            for (t = 0; t < boxes; ++t) {
+                box b = float_to_box_stride(d.y.vals[i] + t*(4 + 1), 1);
+                if (!b.x) break;
+                int left = (b.x - b.w / 2.)*ai.w;
+                int right = (b.x + b.w / 2.)*ai.w;
+                int top = (b.y - b.h / 2.)*ai.h;
+                int bot = (b.y + b.h / 2.)*ai.h;
+                draw_box_width(ai, left, top, right, bot, 3, 150, 100, 50); // 3 channels RGB
+            }
+
+            show_image(ai, buff);
+            cvWaitKey(0);
+        }*/
+
+        cvReleaseImage(&src);
+        cvReleaseImage(&bgmask);
+    }
+    free(random_paths);
+    return d;
+}
+
+#else    // Non OPENCV
 data load_data_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
 {
     c = c ? c : 3;
@@ -1305,6 +1440,131 @@ data load_data_aug_detection(int n, char **paths, int m, int w, int h, int c, in
     return d;
 }
 
+/*
+++20190704
+Non OpenCV Function
+*/
+data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
+{
+    c = c ? c : 3;
+    char **random_paths;
+    if(track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
+    else random_paths = get_random_paths(paths, n, m);
+    int i;
+    data d = { 0 };
+    d.shallow = 0;
+
+    d.X.rows = n;
+    d.X.vals = (float**)calloc(d.X.rows, sizeof(float*));
+    d.X.cols = h*w*c;
+
+    float r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+    float dhue = 0, dsat = 0, dexp = 0, flip = 0;
+    int augmentation_calculated = 0;
+
+    d.y = make_matrix(n, 5 * boxes);
+    // d.z = make_matrix(1,1);
+
+    for (i = 0; i < n; ++i) {
+        //++same as opencv part
+        const char *filename = random_paths[i];
+
+        image orig = load_image(filename, 0, 0, c);
+        image bg   = make_empty_image(0,0,0);//++bgimage
+
+        char bgfilename[4096];
+        replace_image_to_bg(filename, bgfilename);
+        bg = load_image(bgfilename,0,0,1);
+
+        int oh = orig.h;
+        int ow = orig.w;
+
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
+
+        //++ data type check
+        int bh = bg.h;
+        int bw = bg.w;
+        assert( oh == bh && ow == bw && bg.c == 1 );
+
+        if (!augmentation_calculated || !track)
+        {
+            augmentation_calculated = 1;
+            r1 = random_float();
+            r2 = random_float();
+            r3 = random_float();
+            r4 = random_float();
+
+            dhue = rand_uniform_strong(-hue, hue);
+            dsat = rand_scale(saturation);
+            dexp = rand_scale(exposure);
+
+            flip = use_flip ? random_gen() % 2 : 0;
+        }
+
+        int pleft = rand_precalc_random(-dw, dw, r1);
+        int pright = rand_precalc_random(-dw, dw, r2);
+        int ptop = rand_precalc_random(-dh, dh, r3);
+        int pbot = rand_precalc_random(-dh, dh, r4);
+
+        int swidth = ow - pleft - pright;
+        int sheight = oh - ptop - pbot;
+
+        float sx = (float)swidth / ow;
+        float sy = (float)sheight / oh;
+
+        image cropped = crop_image(orig, pleft, ptop, swidth, sheight);
+        image bgcropped = crop_image(bg, pleft , ptop , swidth , sheight ); //++
+
+        float dx = ((float)pleft / ow) / sx;
+        float dy = ((float)ptop / oh) / sy;
+
+        image sized = resize_image(cropped, w, h);
+        image bgsized = resize_image( bgcropped , w , h );
+        if (flip) { 
+            flip_image(sized);
+            flip_image(bgsized);
+        }
+        distort_image(sized, dhue, dsat, dexp);
+        // noise_image(sized, 0.1 , 0.1);
+        //random_distort_image(sized, hue, saturation, exposure);
+        //++merge 2 image into 1
+        image merged_sized = merge_image( sized , bgsized );
+        // d.X.vals[i] = sized.data;
+        d.X.vals[i] = merged_sized.data;
+
+        fill_truth_detection(random_paths[i], boxes, d.y.vals[i], classes, flip, dx, dy, 1. / sx, 1. / sy, w, h);
+
+        /*
+        {
+            char buff[10];
+            sprintf(buff, "aug_%s_%d", random_paths[i], random_gen());
+            int t;
+            for (t = 0; t < boxes; ++t) {
+                box b = float_to_box_stride(d.y.vals[i] + t*(4 + 1), 1);
+                if (!b.x) break;
+                int left = (b.x - b.w / 2.)*sized.w;
+                int right = (b.x + b.w / 2.)*sized.w;
+                int top = (b.y - b.h / 2.)*sized.h;
+                int bot = (b.y + b.h / 2.)*sized.h;
+                draw_box_width(sized, left, top, right, bot, 3, 150, 100, 50); // 3 channels RGB
+            }
+
+            show_image(sized, buff);
+            cvWaitKey(0);
+        }*/
+
+        free_image(orig);
+        free_image(cropped);
+        free_image(bg);
+        free_image(bgcropped);
+        free_image(sized);
+        free_image(bgsized);
+    }
+    free(random_paths);
+    return d;
+}
+
 #endif    // OPENCV
 
 void *load_thread(void *ptr)
@@ -1337,13 +1597,18 @@ void *load_thread(void *ptr)
     } else if (a.type == IMAGE_DATA){
         *(a.im) = load_image(a.path, 0, 0, a.c);
         *(a.resized) = resize_image(*(a.im), a.w, a.h);
-    }else if (a.type == LETTERBOX_DATA) {
+    } else if (a.type == IMAGE_C4_DATA){//New Function for loading 2 image into 4 channels
+        *(a.im) = load_image_c4_data( a.path , 0 , 0 , a.c );
+        *(a.resized) = resize_image(*(a.im), a.w, a.h);
+    } else if (a.type == LETTERBOX_DATA) {
         *(a.im) = load_image(a.path, 0, 0, a.c);
         *(a.resized) = letterbox_image(*(a.im), a.w, a.h);
     } else if (a.type == TAG_DATA){
         *a.d = load_data_tag(a.paths, a.n, a.m, a.classes, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
-    } else if (a.type == DETECTION_AUG_DATA){
+    } else if (a.type == DETECTION_AUG_DATA) {
         *a.d = load_data_aug_detection(a.n, a.paths, a.m, a.w, a.h, a.c, a.num_boxes, a.classes, a.flip, a.jitter, a.hue, a.saturation, a.exposure, a.degP, a.degV, a.mini_batch, a.track, a.augment_speed);
+    } else if (a.type == DETECTION_C4_DATA) {
+        *a.d = load_data_c4_detection(a.n, a.paths, a.m, a.w, a.h, a.c, a.num_boxes, a.classes, a.flip, a.jitter, a.hue, a.saturation, a.exposure , a.mini_batch, a.track, a.augment_speed);
     }
     free(ptr);
     return 0;
