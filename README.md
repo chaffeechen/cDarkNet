@@ -39,8 +39,19 @@ cDarkNet is modified by AlexeyAB's darknet
    ##detection result##
     for thresh = 0.25, precision = 0.51, recall = 0.12, F1-score = 0.19 ,TP = 3778, FP = 3656 , FN = 28228, average IoU = 33.98 %
 
-    6. train valide2 function added
-      usage ./darknet classifier valid2 <same thing as usual>
-      In valid2 mode, more error analysis can be seen.
-      Each class will output its Top1 and Top2 accuracy result.
+6. classifier valid2 function added
+  usage ./darknet classifier valid2 <same thing as usual>
+  In valid2 mode, more error analysis can be seen.
+  Each class will output its Top1 and Top2 accuracy result.
+
+7. detector train3 function added
+  usage: ./darknet train3 <same thing as usual>
+  This function will take 2 image as input and combine them into a 4 channel image data as input of the network.
+  First image is an original bgr image read from the train.txt, the second image is a single channel heatmap image read by replace XXX.[jpg/tiff/jpeg] into XXX_bg.[jpg/tiff/jpeg].
+  The idea behind is using the probability map of other algorithm to help for detection. 
+  E.g. Use the result of background subtraction as the 4th channel.
+  To verify the result, map3 should be used: ./darknet map3 <same thing as usual>
+
+
+
    
