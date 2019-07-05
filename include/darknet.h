@@ -825,6 +825,7 @@ LIB_API image resize_image(image im, int w, int h);
 LIB_API void copy_image_from_bytes(image im, char *pdata);
 LIB_API image letterbox_image(image im, int w, int h);
 LIB_API void rgbgr_image(image im);
+LIB_API float iou_binary_image( image src , image dst );
 LIB_API image make_image(int w, int h, int c);
 LIB_API image load_image_color(char *filename, int w, int h);
 LIB_API void free_image(image m);

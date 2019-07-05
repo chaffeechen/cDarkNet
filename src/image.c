@@ -1159,6 +1159,23 @@ void rgbgr_image(image im)
     }
 }
 
+//++
+float iou_binary_image( image src , image dst )
+{
+    assert(src.w == dst.w && src.h == dst.h && src.c == dst.c );
+    int size = src.w*src.h*src.c;
+    float join = 0, unions = 0;
+    for ( int i = 0 ; i < size ; i++ ) {
+        if (src.data[i] >= 0.5 && dst.data[i] >= 0.5 ) {
+            join+=1;
+            unions+=1;
+        } else if( src.data[i] >= 0.5 || dst.data[i] >= 0.5 ) {
+            unions+=1;
+        }
+    }
+    return join/unions;
+}
+
 #ifdef OPENCV
 void show_image_cv(image p, const char *name)
 {
