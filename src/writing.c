@@ -9,9 +9,9 @@
 void train_writing(char *cfgfile, char *weightfile);
 void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus );
 void test_writing(char *cfgfile, char *weightfile, char *filename);
-float valid_writing( char *cfgfile, char *weightfile , network *existing_net );
+float valid_writing( char *datacfg , char *cfgfile, char *weightfile , network *existing_net );
 
-float valid_writing( char *cfgfile, char *weightfile , network *existing_net )
+float valid_writing( char *datacfg , char *cfgfile, char *weightfile , network *existing_net )
 {
     // network net = parse_network_cfg(cfgfile);
     // if(weightfile){
@@ -37,17 +37,21 @@ float valid_writing( char *cfgfile, char *weightfile , network *existing_net )
     }
     srand(2222222);
     clock_t time;
-    char buff[256];
+    // char buff[256];
+    printf("Reading cfg file\n");
+    list *options = read_data_cfg(datacfg);
+    char *valid_list = option_find_str(options, "valid", "figures_valid.list");
+    list *plist = get_paths(valid_list);
 
-    float avg_iou = 0;
-    printf("Reading fiagures_valid.list\n");
-    list *plist = get_paths("figures_valid.list");
+    // list *plist = get_paths("figures_valid.list");
     int m = plist->size;
 
     char **paths = (char **)list_to_array(plist);
     // printf("Replacing names\n");
     char **replace_paths = find_replace_paths(paths, m, ".jpg", "_label.jpg");
     
+    float avg_iou = 0;
+
     free_list(plist);
     printf("Start predicting\n");
     for(i = 0; i < m; ++i){
@@ -95,6 +99,7 @@ float valid_writing( char *cfgfile, char *weightfile , network *existing_net )
     }
     free(replace_paths);
     free(paths);
+    free_list(options);
 
     printf("Avg_iou = %f\n",  avg_iou / m );
 
@@ -209,6 +214,7 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     float avg_loss = -1;
     char *base = basecfg(cfgfile);
     printf("%s\n", base);
+    printf("%d\n", ngpus);
 
 
     //20190705 +gpu
@@ -256,6 +262,7 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     args.n = imgs;
     args.m = N;
     args.d = &buffer;
+    args.threads = 32;
     args.type = WRITING_DATA;
 
     //+gpu
@@ -405,7 +412,7 @@ void run_writing(int argc, char **argv)
 
     char *cfg = argv[3];
     char *weights = (argc > 4) ? argv[4] : 0;
-    char *filename = (argc > 5) ? argv[5] : 0;
+    char *filename = (argc > 5) ? argv[5] : 0;//imagename / datacfg file name
 
     //20190705 +gpu
     char *gpu_list = find_char_arg(argc, argv, "-gpus", 0);
@@ -438,5 +445,5 @@ void run_writing(int argc, char **argv)
     if(0==strcmp(argv[2], "train")) train_writing(cfg, weights);
     else if(0==strcmp(argv[2], "traingpu")) train_writing_gpu(cfg, weights , gpus , ngpus );
     else if(0==strcmp(argv[2], "test")) test_writing(cfg, weights, filename);
-    else if(0==strcmp(argv[2], "valid")) valid_writing(cfg, weights,NULL);
+    else if(0==strcmp(argv[2], "valid")) valid_writing( filename, cfg, weights,NULL);
 }
