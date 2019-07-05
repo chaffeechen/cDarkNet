@@ -7,7 +7,7 @@
 #endif
 
 void train_writing(char *cfgfile, char *weightfile);
-void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus );
+void train_writing_gpu( char *datacfg , char *cfgfile, char *weightfile , int *gpus, int ngpus );
 void test_writing(char *cfgfile, char *weightfile, char *filename);
 float valid_writing( char *datacfg , char *cfgfile, char *weightfile , network *existing_net );
 
@@ -24,7 +24,7 @@ float valid_writing( char *datacfg , char *cfgfile, char *weightfile , network *
     if (existing_net) {
         net = *existing_net;    // for validation during training
         old_batch = net.batch;
-        set_batch_network(&net, 1);
+        // set_batch_network(&net, 1);
     }
     else {
         net = parse_network_cfg_custom(cfgfile, 1, 0);
@@ -91,6 +91,8 @@ float valid_writing( char *datacfg , char *cfgfile, char *weightfile , network *
 
     if (existing_net) {
         set_batch_network(&net, old_batch);
+    } else {
+        free_network(net);
     }
 
     for(i = 0; i < m; ++i) {
@@ -206,7 +208,7 @@ void train_writing(char *cfgfile, char *weightfile)
     free(paths);
 }
 
-void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
+void train_writing_gpu(char *datacfg, char *cfgfile, char *weightfile , int *gpus, int ngpus )
 {
     int i,j;
     char* backup_directory = "backup/writing/";
@@ -215,6 +217,17 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     char *base = basecfg(cfgfile);
     printf("%s\n", base);
     printf("%d\n", ngpus);
+
+    // network net_map;
+    // cuda_set_device(gpus[0]);
+    // printf(" Prepare additional network for mAP calculation...\n");
+    // net_map = parse_network_cfg_custom(cfgfile, 1, 1);
+
+
+    // int k;  // free memory unnecessary arrays
+    // for (k = 0; k < net_map.n; ++k) {
+    //         free_layer(net_map.layers[k]);
+    // }
 
 
     //20190705 +gpu
@@ -236,13 +249,21 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     //+gpu
     network net = nets[0];
 
+
+
     // network net = parse_network_cfg(cfgfile);
     // if(weightfile){
     //     load_weights(&net, weightfile);
     // }
+
+    list *options = read_data_cfg(datacfg);
+    char *train_list = option_find_str(options , "train" , "figures.list");
+    list *plist = get_paths(train_list);
+
+
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net.learning_rate, net.momentum, net.decay);
     int imgs = net.batch*net.subdivisions;
-    list *plist = get_paths("figures.list");
+    // list *plist = get_paths("figures.list");
     char **paths = (char **)list_to_array(plist);
     clock_t time;
     int N = plist->size;
@@ -264,6 +285,8 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     args.d = &buffer;
     args.threads = 32;
     args.type = WRITING_DATA;
+
+    args.threads = 3 * ngpus;
 
     //+gpu
     pthread_t load_thread;
@@ -301,6 +324,13 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
                 else fprintf(stderr, " Tensor Cores are used.\n");
             }
         }
+
+        // if (i%100 == 0) {
+        //     copy_weights_net(net, &net_map);
+        //     printf("##validation##\n");
+        //     float avg_iou = valid_writing(datacfg , cfgfile, weightfile , &net_map );
+        //     printf("%d: avg_iou = %f\n",  i , avg_iou );
+        // }
 
 
         /*
@@ -344,10 +374,14 @@ void train_writing_gpu(char *cfgfile, char *weightfile , int *gpus, int ngpus )
     }//while
     free_network(net);
 
+    // net_map.n = 0;
+    // free_network(net_map);
+
     for(i = 0; i < N; ++i) {
         free(paths[i]);
     }
     free(paths);
+    free_list(options);
 }
 
 void test_writing(char *cfgfile, char *weightfile, char *filename)
@@ -406,7 +440,7 @@ void test_writing(char *cfgfile, char *weightfile, char *filename)
 void run_writing(int argc, char **argv)
 {
     if(argc < 4){
-        fprintf(stderr, "usage: %s %s [train/test/valid] [cfg] [weights (optional)]\n", argv[0], argv[1]);
+        fprintf(stderr, "usage: %s %s [train/test/valid] [cfg] [weights (optional)][datacfg]\n", argv[0], argv[1]);
         return;
     }
 
@@ -443,7 +477,7 @@ void run_writing(int argc, char **argv)
 
 
     if(0==strcmp(argv[2], "train")) train_writing(cfg, weights);
-    else if(0==strcmp(argv[2], "traingpu")) train_writing_gpu(cfg, weights , gpus , ngpus );
+    else if(0==strcmp(argv[2], "traingpu")) train_writing_gpu( filename, cfg, weights , gpus , ngpus );
     else if(0==strcmp(argv[2], "test")) test_writing(cfg, weights, filename);
     else if(0==strcmp(argv[2], "valid")) valid_writing( filename, cfg, weights,NULL);
 }
