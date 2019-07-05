@@ -8,7 +8,7 @@
 
 void train_writing(char *cfgfile, char *weightfile)
 {
-    char* backup_directory = "backup/";
+    char* backup_directory = "backup/writing/";
     srand(time(0));
     float avg_loss = -1;
     char *base = basecfg(cfgfile);
@@ -50,6 +50,17 @@ void train_writing(char *cfgfile, char *weightfile)
 
         time=clock();
         float loss = train_network(net, train);
+        // float loss = 0;
+        // #ifdef GPU
+        //         if (ngpus == 1) {
+        //             loss = train_network(net, train);
+        //         }
+        //         else {
+        //             loss = train_networks(nets, ngpus, train, 4);
+        //         }
+        // #else
+        //         loss = train_network(net, train);
+        // #endif
 
         /*
            image pred = float_to_image(64, 64, 1, out);
