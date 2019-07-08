@@ -290,7 +290,7 @@ void delta_yolo_class_hyper(float *output, float *delta, int index, int class_id
     else {
         // default
         for (n = 0; n < classes; ++n) {
-            delta[index + stride*n] = scale*((n == class_id) ? 1 : 0) - output[index + stride*n];
+            delta[index + stride*n] = scale*(((n == class_id) ? 1 : 0) - output[index + stride*n]);//bug fix
             if (n == class_id && avg_cat) *avg_cat += output[index + stride*n];
         }
     }
@@ -332,7 +332,7 @@ void delta_yolo_class_hyper2(float *output, float *delta, int index, int class_i
     else {
         // default
         for (n = 0; n < classes; ++n) {
-            delta[index + stride*n] = class_weights[n] * scale*((n == class_id) ? 1 : 0) - output[index + stride*n];
+            delta[index + stride*n] = class_weights[n] * scale*(((n == class_id) ? 1 : 0) - output[index + stride*n] );//bug fix 20190708 仅在使用非默认的class_weights和class_scale时出错
             if (n == class_id && avg_cat) *avg_cat += output[index + stride*n];
         }
     }
