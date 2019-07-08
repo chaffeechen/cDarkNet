@@ -1116,7 +1116,7 @@ Function using opencv
 */
 data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
 {
-    c = c ? c : 3;
+    c = c ? c : 4;
     char **random_paths;
     if (track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
     else random_paths = get_random_paths(paths, n, m);
@@ -1446,7 +1446,7 @@ Non OpenCV Function
 */
 data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int boxes, int classes, int use_flip, float jitter, float hue, float saturation, float exposure, int mini_batch, int track, int augment_speed)
 {
-    c = c ? c : 3;
+    c = c ? c : 4;
     char **random_paths;
     if(track) random_paths = get_sequential_paths(paths, n, m, mini_batch, augment_speed);
     else random_paths = get_random_paths(paths, n, m);
@@ -1469,7 +1469,7 @@ data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int
         //++same as opencv part
         const char *filename = random_paths[i];
 
-        image orig = load_image(filename, 0, 0, c);
+        image orig = load_image(filename, 0, 0, 3);
         image bg   = make_empty_image(0,0,0);//++bgimage
 
         char bgfilename[4096];

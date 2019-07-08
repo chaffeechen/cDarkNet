@@ -269,10 +269,10 @@ void replace_image_to_label(const char* input_path, char* output_path)
 //++ 20190703 4th channel plus
 void replace_image_to_bg(const char* input_path, char* output_path)
 {
-    trim(output_path);
+    // trim(input_path);
 
     // replace only ext of files
-    find_replace_extension(output_path, ".jpg", "_bg.jpg", output_path);
+    find_replace_extension(input_path, ".jpg", "_bg.jpg", output_path);
     find_replace_extension(output_path, ".JPG", "_bg.JPG", output_path); // error
     find_replace_extension(output_path, ".jpeg", "_bg.jpeg", output_path);
     find_replace_extension(output_path, ".JPEG", "_bg.JPEG", output_path);
@@ -284,13 +284,11 @@ void replace_image_to_bg(const char* input_path, char* output_path)
     find_replace_extension(output_path, ".PPM", "_bg.PPM", output_path);
     find_replace_extension(output_path, ".tiff", "_bg.tiff", output_path);
     find_replace_extension(output_path, ".TIFF", "_bg.TIFF", output_path);
+    trim(output_path);
 
     // Check file ends with txt:
     if(strlen(output_path) > 4) {
-        char *output_path_ext = output_path + strlen(output_path) - 4;
-        if( strcmp(".txt", output_path_ext) != 0){
-            fprintf(stderr, "Failed to infer label file name (check image extension is supported): %s \n", output_path);
-        }
+        //pass
     }else{
         fprintf(stderr, "Label file name is too short: %s \n", output_path);
     }

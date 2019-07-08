@@ -1276,6 +1276,7 @@ image ipls_to_image(IplImage* src, IplImage* bg)
     int w = src->width;
     int c = src->nChannels;
     int step = src->widthStep;
+    int stepbg = bg->widthStep;//20190708 bugfix
 
     assert( h == bg->height );
     assert( w == bg->width );
@@ -1294,7 +1295,7 @@ image ipls_to_image(IplImage* src, IplImage* bg)
 
     for(i = 0; i < h; ++i){
         for(j = 0; j < w; ++j){
-            out.data[count++] = databg[i*step + j ]/255.;
+            out.data[count++] = databg[i*stepbg + j ]/255.;
         }
     }
 
