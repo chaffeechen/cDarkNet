@@ -172,6 +172,9 @@ convolutional_layer parse_convolutional(list *options, size_params params)
     convolutional_layer layer = make_convolutional_layer(batch,1,h,w,c,n,size,stride,padding,activation, batch_normalize, binary, xnor, params.net.adam, use_bin_output, params.index);
     layer.flipped = option_find_int_quiet(options, "flipped", 0);
     layer.dot = option_find_float_quiet(options, "dot", 0);
+    /*如果有这个标示，那么会将输入的3通道在存储的时候复制成4通道进行存储*/
+    layer.repInChannel = option_find_int_quiet(options,"repInChannel",0);//+20190709
+    layer.repOutChannel = option_find_int_quiet(options,"repOutChannel",0);//暂时不起作用
 
     layer.learning_rate_scale = option_find_float_quiet(options, "learning_rate_scale", 1);
 
@@ -1097,6 +1100,25 @@ void save_convolutional_weights(layer l, FILE *fp)
     //    fwrite(l.m, sizeof(float), num, fp);
     //    fwrite(l.v, sizeof(float), num, fp);
     //}
+    //+20190709目的是适应通道的增加，用已知的通道复制出新的通道
+    if (l.repInChannel > 0) {
+        assert(l.repInChannel<=l.c);//仅支持扩大一倍
+        float *w = l.weights;
+        int cols = l.n;
+        // int rows = l.c*l.size*l.size;
+        int chrows = l.size*l.size;
+        fwrite( w, sizeof(float) , l.repInChannel*chrows*cols , fp );
+    }
+    if (l.repOutChannel > 0){
+        // assert(l.repOutChannel <= l.n );//仅支持扩大一倍，且不支持同时扩大input和output
+        // float *w = l.weights;
+        // transpose_matrix(w, l.c*l.size*l.size, l.n);
+        //TODO
+        // transpose_matrix(w, l.n, l.c*l.size*l.size);        
+    }
+    
+
+
 }
 
 void save_batchnorm_weights(layer l, FILE *fp)

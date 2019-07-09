@@ -238,6 +238,8 @@ struct layer {
     float bflops;
     float *class_weights;//++20190618
     float aug_data_scale;//++20190620 避免混合数据时，数据有偏差导致问题，即使可靠也要降低数据的可信度
+    int repInChannel;
+    int repOutChannel;
 
     int adam;
     float B1;
