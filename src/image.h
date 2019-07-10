@@ -42,6 +42,7 @@ void draw_detections_v4(image im, detection *dets, int num, float thresh, float 
 image image_distance(image a, image b);
 void scale_image(image m, float s);
 image crop_image(image im, int dx, int dy, int w, int h);
+image crop_image2(image im, int dx, int dy, int w, int h);//no constrain_int, so 0 will be used for padding.
 image random_crop_image(image im, int w, int h);
 image random_augment_image(image im, float angle, float aspect, int low, int high, int size);
 void random_distort_image(image im, float hue, float saturation, float exposure);
