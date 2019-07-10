@@ -1950,6 +1950,7 @@ float validate_detector_map_2stage(
 
     layer last_layer = netCls.layers[netCls.n - 1];//Detection class = 1
     int classes = last_layer.outputs;
+    printf("%d classes in Classification Network\n" , classes);
     int det_classes = 1;
 
     int m = plist->size;
@@ -2036,7 +2037,7 @@ float validate_detector_map_2stage(
             char *path = paths[image_index];
             char *id = basecfg(path);
             float *X = val_resized[t].data;
-
+            // printf("detect\n");
             network_predict(netDet, X);
 
             int nboxes = 0;
@@ -2053,6 +2054,8 @@ float validate_detector_map_2stage(
 
             if (nms) do_nms_sort(dets, nboxes, det_classes, nms);
 
+            int i, j;
+
             /*
             ToDo
             */
@@ -2060,29 +2063,30 @@ float validate_detector_map_2stage(
             memcpy( imgX.data , X , sizeof(float)*netDet.w*netDet.h*netDet.c );
 
             for (j=0 ; j < nboxes ; j++ ) {
-                box bbox = dets[i].bbox;
+                box bbox = dets[j].bbox;
                 int dx = bbox.x - bbox.w/2; int dy = bbox.y - bbox.h/2;
                 int w = bbox.w; int h = bbox.h;
                 image cropped = crop_image2(imgX, dx , dy , w , h );
                 //fork from classifier.c
                 image resized = resize_min(imgX, netCls.w);
                 image cropped2 = crop_image(resized, (resized.w - netCls.w)/2, (resized.h - netCls.h)/2, netCls.w, netCls.h);
-
+                // printf("predict\n");
                 float *pred = network_predict(netCls, cropped2.data);
                 if(netCls.hierarchy) hierarchy_predictions(pred, netCls.outputs, netCls.hierarchy, 1);
 
-                free(dets[i].prob);
-                dets[i].prob = (float*)calloc(classes , sizeof(float));
-                dets[i].classes = classes;
+                free(dets[j].prob);
+                dets[j].prob = (float*)calloc(classes , sizeof(float));
+                dets[j].classes = classes;
                 //memcpy( dets[i].prob , pred , sizeof(float)*classes);
-                for ( i = 0 ; i < classes ; i++ ) {
-                    dets[i].prob[i] = dets[i].objectness * pred[i];
+                for ( int k = 0 ; k < classes ; k++ ) {
+                    dets[j].prob[k] = dets[j].objectness * pred[k];
                 }
-
+                // printf("free\n");
                 free_image(cropped);
                 free_image(resized);
                 free_image(cropped2);
             }
+            // printf("free imgX\n");
             free_image(imgX);
 
 
@@ -2095,7 +2099,7 @@ float validate_detector_map_2stage(
             replace_image_to_label(path, labelpath);
             int num_labels = 0;
             box_label *truth = read_boxes(labelpath, &num_labels);
-            int i, j;
+            
             for (j = 0; j < num_labels; ++j) {
                 truth_classes_count[ truth[j].id > (classes-1) ? classes-1:truth[j].id ]++;//trim
             }
@@ -2117,23 +2121,23 @@ float validate_detector_map_2stage(
 
             // 这里我们固定死了topk的数量，后续可以考虑设置为参数进行使用
 
-            for (i = 0; i < nboxes; ++i) {//遍历所有检测出的结果
+            for (int p = 0; p < nboxes; ++p) {//遍历所有检测出的结果
 
                 int class_id;
                 int detected_truth_index = -1; //20190623 index used for detection only to show whether a target is detected regardless his label
                 float detected_max_iou = 0;
 
                 //  求出排在前面的k个class的index
-                float *prob_mir = dets[i].prob;
+                float *prob_mir = dets[p].prob;
                 top_k(prob_mir, classes, topk, indexes);
                 
                 for (class_id = 0; class_id < classes; ++class_id) {//对每个检测出的结果，遍历所有类别
-                    float prob = dets[i].prob[class_id];
-                    float prob_obj = dets[i].objectness;//++20190623 prob of a target contains a target
+                    float prob = dets[p].prob[class_id];
+                    float prob_obj = dets[p].objectness;//++20190623 prob of a target contains a target
                     if (prob > 0) {//如果该类别可能性大于0则记录下来并进行处理
                         detections_count++;
                         detections = (box_prob*)realloc(detections, detections_count * sizeof(box_prob));
-                        detections[detections_count - 1].b = dets[i].bbox;
+                        detections[detections_count - 1].b = dets[p].bbox;
                         detections[detections_count - 1].p = prob;
                         detections[detections_count - 1].image_index = image_index;
                         detections[detections_count - 1].class_id = class_id;
@@ -2152,7 +2156,7 @@ float validate_detector_map_2stage(
                             box t = { truth[j].x, truth[j].y, truth[j].w, truth[j].h };
                             //printf(" IoU = %f, prob = %f, class_id = %d, truth[j].id = %d \n",
                             //    box_iou(dets[i].bbox, t), prob, class_id, truth[j].id);
-                            float current_iou = box_iou(dets[i].bbox, t);
+                            float current_iou = box_iou(dets[p].bbox, t);
                             if (current_iou > iou_thresh && class_id == truth[j].id) {//如果iou大于阈值且类别与groundtruth一致则记录下与当前预测框iou重合度最大的groundtruth
                                 if (current_iou > max_iou) {
                                     max_iou = current_iou;
@@ -2187,7 +2191,7 @@ float validate_detector_map_2stage(
                             // if object is difficult then remove detection
                             for (j = 0; j < num_labels_dif; ++j) {
                                 box t = { truth_dif[j].x, truth_dif[j].y, truth_dif[j].w, truth_dif[j].h };
-                                float current_iou = box_iou(dets[i].bbox, t);
+                                float current_iou = box_iou(dets[p].bbox, t);
                                 if (current_iou > iou_thresh && class_id == truth_dif[j].id) {
                                     --detections_count;
                                     break;
@@ -2454,7 +2458,7 @@ float validate_detector_map_2stage(
     if (reinforcement_fd != NULL) fclose(reinforcement_fd);
 
     // free memory
-    free_ptrs((void**)names, netCls.layers[netCls.n - 1].classes);
+    free_ptrs((void**)names, classes);
     free_list_contents_kvp(options);
     free_list(options);
 
