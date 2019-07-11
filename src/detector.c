@@ -1900,11 +1900,15 @@ validate_detector_map_2stage
 2 step validation
 -- detection
 -- classification
+Version:
+0: Fast one, Classification is done after NMS, which is a bit different from real mAP calculation
+1: Slow but accurate one, Classification is done before NMS
+Both of them are correct because, the first one is based on the idea, that we only do classification after detection.
 */
 float validate_detector_map_2stage(
     char *datacfg, char *cfgfileDet, char *weightfileDet, 
     char *cfgfileCls, char *weightfileCls,
-    float thresh_calc_avg_iou, const float iou_thresh ,  
+    float thresh_calc_avg_iou, const float iou_thresh ,  int Version ,
     int mapType )
 {
     int j;
@@ -1943,10 +1947,6 @@ float validate_detector_map_2stage(
     char **paths = (char **)list_to_array(plist);
 
     char **paths_dif = NULL;
-    // if (difficult_valid_images) {
-    //     list *plist_dif = get_paths(difficult_valid_images);
-    //     paths_dif = (char **)list_to_array(plist_dif);
-    // }
 
     layer last_layer = netCls.layers[netCls.n - 1];//Detection class = 1
     int classes = last_layer.outputs;
@@ -2052,44 +2052,67 @@ float validate_detector_map_2stage(
                 dets = get_network_boxes(&netDet, 1, 1, thresh, hier_thresh, 0, 0, &nboxes, letterbox);
             }
 
-            if (nms) do_nms_sort(dets, nboxes, det_classes, nms);
+
+            image imgX = copy_image(val[t]);
+            // image imgX = make_image(netDet.w , netDet.h , netDet.c );
+            // memcpy( imgX.data , X , sizeof(float)*netDet.w*netDet.h*netDet.c );
+            float clsScale = 1.4;
+
 
             int i, j;
 
+            if (Version == 0) { //Fast but a bit different
+                if (nms) do_nms_sort(dets, nboxes, det_classes, nms);
+            }
+
+            for (j=0 ; j < nboxes ; j++ ) {
+                float prob = dets[j].prob[0];
+                if (prob > 0 )
+                {
+                    box bbox = dets[j].bbox;
+                    int w = bbox.w*imgX.w*clsScale;
+                    int h = bbox.h*imgX.h*clsScale;
+                    int cx = bbox.x*imgX.w;
+                    int cy = bbox.y*imgX.h;
+                    int dx = cx - w/2;
+                    int dy = cy - h/2;
+
+                    image cropped = crop_image2(imgX, dx , dy , w , h );
+                    //fork from classifier.c
+                    image resized = resize_min(cropped, netCls.w);
+                    image cropped2 = crop_image(resized, (resized.w - netCls.w)/2, (resized.h - netCls.h)/2, netCls.w, netCls.h);
+                    // printf("predict\n");
+                    float *pred = network_predict(netCls, cropped2.data);
+                    if(netCls.hierarchy) hierarchy_predictions(pred, netCls.outputs, netCls.hierarchy, 1);
+
+                    free(dets[j].prob);
+                    dets[j].prob = (float*)calloc(classes , sizeof(float));
+                    dets[j].classes = classes;
+                    //memcpy( dets[i].prob , pred , sizeof(float)*classes);
+                    for ( int k = 0 ; k < classes ; k++ ) {
+                        dets[j].prob[k] = dets[j].objectness*pred[k];
+                    }
+                    // printf("free\n");
+                    free_image(cropped);
+                    if ( resized.data != cropped.data ) free_image(resized);
+                    // free_image(resized);
+                    free_image(cropped2);
+                } else {
+                    free(dets[j].prob);
+                    dets[j].prob = (float*)calloc(classes , sizeof(float));
+                    dets[j].classes = classes;
+                }
+            }
+
+            if (Version == 1) { //Fast but a bit different
+                if (nms) do_nms_sort(dets, nboxes, classes, nms);
+            }
+ 
             /*
             ToDo
             */
-            image imgX = make_image(netDet.w , netDet.h , netDet.c );
-            memcpy( imgX.data , X , sizeof(float)*netDet.w*netDet.h*netDet.c );
-
-            for (j=0 ; j < nboxes ; j++ ) {
-                box bbox = dets[j].bbox;
-                int dx = bbox.x - bbox.w/2; int dy = bbox.y - bbox.h/2;
-                int w = bbox.w; int h = bbox.h;
-                image cropped = crop_image2(imgX, dx , dy , w , h );
-                //fork from classifier.c
-                image resized = resize_min(imgX, netCls.w);
-                image cropped2 = crop_image(resized, (resized.w - netCls.w)/2, (resized.h - netCls.h)/2, netCls.w, netCls.h);
-                // printf("predict\n");
-                float *pred = network_predict(netCls, cropped2.data);
-                if(netCls.hierarchy) hierarchy_predictions(pred, netCls.outputs, netCls.hierarchy, 1);
-
-                free(dets[j].prob);
-                dets[j].prob = (float*)calloc(classes , sizeof(float));
-                dets[j].classes = classes;
-                //memcpy( dets[i].prob , pred , sizeof(float)*classes);
-                for ( int k = 0 ; k < classes ; k++ ) {
-                    dets[j].prob[k] = dets[j].objectness * pred[k];
-                }
-                // printf("free\n");
-                free_image(cropped);
-                free_image(resized);
-                free_image(cropped2);
-            }
-            // printf("free imgX\n");
+            
             free_image(imgX);
-
-
             //network_predict(netCls,X_hat);
             //Reminder: float prob = objectness*predictions[class_index];
 
@@ -2107,15 +2130,6 @@ float validate_detector_map_2stage(
             // difficult
             box_label *truth_dif = NULL;
             int num_labels_dif = 0;
-            // if (paths_dif)
-            // {
-            //     char *path_dif = paths_dif[image_index];
-
-            //     char labelpath_dif[4096];
-            //     replace_image_to_label(path_dif, labelpath_dif);
-
-            //     truth_dif = read_boxes(labelpath_dif, &num_labels_dif);
-            // }
 
             const int checkpoint_detections_count = detections_count;
 
@@ -2189,14 +2203,6 @@ float validate_detector_map_2stage(
                         }
                         else {
                             // if object is difficult then remove detection
-                            for (j = 0; j < num_labels_dif; ++j) {
-                                box t = { truth_dif[j].x, truth_dif[j].y, truth_dif[j].w, truth_dif[j].h };
-                                float current_iou = box_iou(dets[p].bbox, t);
-                                if (current_iou > iou_thresh && class_id == truth_dif[j].id) {
-                                    --detections_count;
-                                    break;
-                                }
-                            }
                         }
 
                         // calc avg IoU, true-positives, false-positives for required Threshold
@@ -3229,7 +3235,7 @@ void run_detector(int argc, char **argv)
     else if (0 == strcmp(argv[2], "map")) validate_detector_map(datacfg, cfg, weights, thresh, iou_thresh, NULL);
     else if (0 == strcmp (argv[2],"map2")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL,0);
     else if (0 == strcmp (argv[2],"map3")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL, 1);//support 4 channel input only
-    else if (0 == strcmp (argv[2],"map_2stage")) {
+    else if (0 == strcmp (argv[2],"map_2stage_v0")) {
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -3237,7 +3243,17 @@ void run_detector(int argc, char **argv)
         if (weightsCls) 
             if (strlen(weightsCls) > 0)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
-        validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 0);
+        validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 0 ,0);
+    }
+    else if (0 == strcmp (argv[2],"map_2stage_v1")) {
+            //+20190710 2 stage map calculation
+        assert(argc > 7);
+        char *cfgCls = (argc > 6) ? argv[6]:0;
+        char *weightsCls = (argc > 7) ? argv[7]:0;
+        if (weightsCls) 
+            if (strlen(weightsCls) > 0)
+                if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
+        validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 1 ,0);
     }
     else if (0 == strcmp(argv[2], "calc_anchors")) calc_anchors(datacfg, num_of_clusters, width, height, show);
     else if (0 == strcmp(argv[2], "demo")) {

@@ -328,7 +328,7 @@ void do_nms_obj(detection *dets, int total, int classes, float thresh)
     }
 }
 
-void do_nms_sort(detection *dets, int total, int classes, float thresh)
+void do_nms_sort(detection *dets, int total, int classes, float thresh)//保证只有最大的保留class保留下来
 {
     int i, j, k;
     k = total - 1;
@@ -340,14 +340,14 @@ void do_nms_sort(detection *dets, int total, int classes, float thresh)
             --k;
             --i;
         }
-    }
+    }//objectness = 0的沉底，并调整数量
     total = k + 1;
 
     for (k = 0; k < classes; ++k) {
         for (i = 0; i < total; ++i) {
             dets[i].sort_class = k;
         }
-        qsort(dets, total, sizeof(detection), nms_comparator_v3);
+        qsort(dets, total, sizeof(detection), nms_comparator_v3);//大的排前面
         for (i = 0; i < total; ++i) {
             //printf("  k = %d, \t i = %d \n", k, i);
             if (dets[i].prob[k] == 0) continue;

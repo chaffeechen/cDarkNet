@@ -794,7 +794,7 @@ LIB_API float validate_detector_map2(char *datacfg, char *cfgfile, char *weightf
 LIB_API float validate_detector_map_2stage(
     char *datacfg, char *cfgfileDet, char *weightfileDet, 
     char *cfgfileCls, char *weightfileCls,
-    float thresh_calc_avg_iou, const float iou_thresh ,  
+    float thresh_calc_avg_iou, const float iou_thresh ,  int Version,
     int mapType );
 /*
 ++ 20190704
