@@ -49,10 +49,11 @@ cDarkNet is modified by AlexeyAB's darknet
 
 
 6. classifier valid2 function added
-   usage: ./darknet classifier valid2 [same thing as usual]
 
-   In valid2 mode, more error analysis can be seen.
-   Each class will output its Top1 and Top2 accuracy result.
+    usage: ./darknet classifier valid2 [same thing as usual]
+
+    In valid2 mode, more error analysis can be seen.
+    Each class will output its Top1 and Top2 accuracy result.
 
 7. detector train3 function added
 
@@ -78,12 +79,12 @@ cDarkNet is modified by AlexeyAB's darknet
 
 9.  map_2stage_v0 and map_2stage_v1 is added to support mAP calculation with 2 stage model.
 
-   usage:  ./darknet detector map_2stage_v0 [datacfg] [detection_cfg] [detection_weights] [classification_cfg] [classification_weights] -thresh -iou_thresh -dont_show
+    usage:  ./darknet detector map_2stage_v0 [datacfg] [detection_cfg] [detection_weights] [classification_cfg] [classification_weights] -thresh -iou_thresh -dont_show
 
-   The mAP will be caculated. 
-   The difference between map_2stage_v0 and map_2stage_v1 is that 'v0' is much faster and classification is predicted after NMS of detection.
-   'v1' is accurate and the classification is predicted before NMS, and NMS is done for multi-classification.
-   However, 'v0' is also correct because the first stage is responsible for detection and the classification network should only takes care of the candidate bbox produced by the first stage.
+    The mAP will be caculated for models combined by detection and classification. 
+    The difference between map_2stage_v0 and map_2stage_v1 is that 'v0' is much faster and classification is predicted after NMS of detection.
+    'v1' is accurate and the classification is predicted before NMS, and NMS is done for multi-classification.
+    However, 'v0' is also correct because the first stage is responsible for detection and the classification network should only takes care of the candidate bbox produced by the first stage.
 
 
    

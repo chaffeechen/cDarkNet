@@ -2061,10 +2061,10 @@ float validate_detector_map_2stage(
 
             int i, j;
 
-            if (Version == 0) { //Fast but a bit different
+            if (Version == 0 || Version == 2) { //Fast but a bit different
                 if (nms) do_nms_sort(dets, nboxes, det_classes, nms);
             }
-
+            // int* indexes = (int*)calloc(2, sizeof(int));
             for (j=0 ; j < nboxes ; j++ ) {
                 float prob = dets[j].prob[0];
                 if (prob > 0 )
@@ -2084,14 +2084,22 @@ float validate_detector_map_2stage(
                     // printf("predict\n");
                     float *pred = network_predict(netCls, cropped2.data);
                     if(netCls.hierarchy) hierarchy_predictions(pred, netCls.outputs, netCls.hierarchy, 1);
+                    top_k(pred, classes, topk, indexes);
 
                     free(dets[j].prob);
                     dets[j].prob = (float*)calloc(classes , sizeof(float));
                     dets[j].classes = classes;
                     //memcpy( dets[i].prob , pred , sizeof(float)*classes);
-                    for ( int k = 0 ; k < classes ; k++ ) {
-                        dets[j].prob[k] = dets[j].objectness*pred[k];
+                    if (Version==2){
+                        dets[j].prob[indexes[0]] = dets[j].objectness*pred[indexes[0]];
+                    } else {
+                        for ( int k = 0 ; k < classes ; k++ ) {
+                                dets[j].prob[k] = dets[j].objectness*pred[k];
+                        }
                     }
+
+
+
                     // printf("free\n");
                     free_image(cropped);
                     if ( resized.data != cropped.data ) free_image(resized);
@@ -2103,6 +2111,7 @@ float validate_detector_map_2stage(
                     dets[j].classes = classes;
                 }
             }
+            // free(indexes);
 
             if (Version == 1) { //Fast but a bit different
                 if (nms) do_nms_sort(dets, nboxes, classes, nms);
@@ -3235,7 +3244,7 @@ void run_detector(int argc, char **argv)
     else if (0 == strcmp(argv[2], "map")) validate_detector_map(datacfg, cfg, weights, thresh, iou_thresh, NULL);
     else if (0 == strcmp (argv[2],"map2")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL,0);
     else if (0 == strcmp (argv[2],"map3")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL, 1);//support 4 channel input only
-    else if (0 == strcmp (argv[2],"map_2stage_v0")) {
+    else if (0 == strcmp (argv[2],"map_2stage_v0")) {//CLS before DET NMS, accurate but slow
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -3245,7 +3254,7 @@ void run_detector(int argc, char **argv)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
         validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 0 ,0);
     }
-    else if (0 == strcmp (argv[2],"map_2stage_v1")) {
+    else if (0 == strcmp (argv[2],"map_2stage_v1")) {//CLS after DET NMS, fast but a bit different
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -3254,6 +3263,16 @@ void run_detector(int argc, char **argv)
             if (strlen(weightsCls) > 0)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
         validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 1 ,0);
+    }
+    else if (0 == strcmp (argv[2],"map_2stage_v2")) {//Top1 Classification
+            //+20190710 2 stage map calculation
+        assert(argc > 7);
+        char *cfgCls = (argc > 6) ? argv[6]:0;
+        char *weightsCls = (argc > 7) ? argv[7]:0;
+        if (weightsCls) 
+            if (strlen(weightsCls) > 0)
+                if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
+        validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 2 ,0);
     }
     else if (0 == strcmp(argv[2], "calc_anchors")) calc_anchors(datacfg, num_of_clusters, width, height, show);
     else if (0 == strcmp(argv[2], "demo")) {
