@@ -1301,6 +1301,41 @@ image ipls_to_image(IplImage* src, IplImage* bg)
 
     return out;
 }
+//+20190715
+image ipls_to_image_scale(IplImage* src, IplImage* bg , float scale )
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    unsigned char *databg = (unsigned char *)bg->imageData;
+
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+    int stepbg = bg->widthStep;//20190708 bugfix
+
+    assert( h == bg->height );
+    assert( w == bg->width );
+    assert( c == 3 && bg->nChannels == 1 );
+
+    image out = make_image(w, h, c+1);
+    int i, j, k, count=0;
+
+    for(k= 0; k < c; ++k){
+        for(i = 0; i < h; ++i){
+            for(j = 0; j < w; ++j){
+                out.data[count++] = data[i*step + j*c + k]/255.;
+            }
+        }
+    }
+
+    for(i = 0; i < h; ++i){
+        for(j = 0; j < w; ++j){
+            out.data[count++] = databg[i*stepbg + j ]/255. * scale;
+        }
+    }
+
+    return out;
+}
 
 image load_image_cv(char *filename, int channels)
 {
@@ -2236,6 +2271,7 @@ image load_image_c4_data(char* filename , int w , int h , int c )
     replace_image_to_bg(filename, bgfilename);
     image im2 = load_image( bgfilename , w , h , 1 );
 
+    scale_image(im2, 0.5);
     out = merge_image( im1 , im2 );
 
     free_image(im1);

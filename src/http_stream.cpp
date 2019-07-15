@@ -710,12 +710,14 @@ image image_data_augmentation_merge_bg(IplImage* ipl, IplImage* iplbg , int w, i
         IplImage src = sized;
         IplImage srcbg = sizedbg;
         //out = ipl_to_image(&src);
-        out = ipls_to_image(&src, &srcbg);
+        // out = ipls_to_image(&src, &srcbg);
+        out = ipls_to_image_scale(&src, &srcbg , 0.5);
     }
     catch (...) {
         cerr << "OpenCV can't augment image: " << w  << " x " << h << " \n";
         // out = ipl_to_image(ipl);
-        out = ipls_to_image(ipl, iplbg);
+        // out = ipls_to_image(ipl, iplbg);
+        out = ipls_to_image_scale(ipl, iplbg , 0.5);
     }
     return out;
 }

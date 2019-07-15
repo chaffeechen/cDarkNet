@@ -105,6 +105,7 @@ image get_image_from_stream(CvCapture* cap);
 image get_image_from_stream_cpp(CvCapture* cap);
 image ipl_to_image(IplImage* src);
 image ipls_to_image(IplImage* src , IplImage* bg);
+image ipls_to_image_scale(IplImage* src , IplImage* bg , float scale );
 void save_cv_png(IplImage *img, const char *name);
 #endif
 //float get_pixel(image m, int x, int y, int c);

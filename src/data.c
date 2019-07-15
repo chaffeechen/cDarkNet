@@ -1529,6 +1529,7 @@ data load_data_c4_detection(int n, char **paths, int m, int w, int h, int c, int
         // noise_image(sized, 0.1 , 0.1);
         //random_distort_image(sized, hue, saturation, exposure);
         //++merge 2 image into 1
+        scale_image(bgsized,0.5);
         image merged_sized = merge_image( sized , bgsized );
         // d.X.vals[i] = sized.data;
         d.X.vals[i] = merged_sized.data;
