@@ -77,7 +77,7 @@ cDarkNet is modified by AlexeyAB's darknet
     In 'valid' mode, the evaluation index is defined as the iou of predict binary image and groundtruth binary image.
     In [datacfg] file, only parameters of 'train = xxx' and 'valid = xxx' is supported. If [datacfg] is not defined, 'figures.list' and 'figures_valid.list' will be used as default.
 
-9.  map_2stage_v0 and map_2stage_v1 is added to support mAP calculation with 2 stage model.
+9. map_2stage_v0 and map_2stage_v1 is added to support mAP calculation with 2 stage model.
 
     usage:  ./darknet detector map_2stage_v0 [datacfg] [detection_cfg] [detection_weights] [classification_cfg] [classification_weights] -thresh -iou_thresh -dont_show
 
@@ -85,6 +85,14 @@ cDarkNet is modified by AlexeyAB's darknet
     The difference between map_2stage_v0 and map_2stage_v1 is that 'v0' is much faster and classification is predicted after NMS of detection.
     'v1' is accurate and the classification is predicted before NMS, and NMS is done for multi-classification.
     However, 'v0' is also correct because the first stage is responsible for detection and the classification network should only takes care of the candidate bbox produced by the first stage.
+
+10. classifier valid3 function added
+
+    usage: ./darknet classifier valid2 [same thing as usual]
+
+    In valid3 mode, AUC of each class will be calculated.
+    All AUCs will be averaged to generate avg_AUC.
+    
 
 
    
