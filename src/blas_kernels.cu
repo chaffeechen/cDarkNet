@@ -781,6 +781,23 @@ extern "C" void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta
     CHECK_CUDA(cudaPeekAtLastError());
 }
 
+__global__ void softmax_x_ent_kernel_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if (i < n) {
+        float t = truth[i];
+        float p = pred[i];
+        error[i] = (t) ? -log(p) : 0;
+        delta[i] = class_weights[i]*(t - p);
+    }
+}
+
+extern "C" void softmax_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights)
+{
+    softmax_x_ent_kernel_clsw << <cuda_gridsize(n), BLOCK, 0, get_cuda_stream() >> >(n, pred, truth, delta, error, class_weights);
+    CHECK_CUDA(cudaPeekAtLastError());
+}
+
 __global__ void l2_kernel(int n, float *pred, float *truth, float *delta, float *error)
 {
     int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;

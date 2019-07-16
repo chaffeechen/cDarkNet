@@ -9,7 +9,7 @@ typedef layer softmax_layer;
 extern "C" {
 #endif
 void softmax_array(float *input, int n, float temp, float *output);
-softmax_layer make_softmax_layer(int batch, int inputs, int groups);
+softmax_layer make_softmax_layer(int batch, int inputs, int groups , float* class_weights );
 void forward_softmax_layer(const softmax_layer l, network_state state);
 void backward_softmax_layer(const softmax_layer l, network_state state);
 

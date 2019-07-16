@@ -46,6 +46,7 @@ void softmax(float *input, int n, float temp, float *output, int stride);
 void upsample_cpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
 void softmax_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output);
 void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error);
+void softmax_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, float *error , float *class_weights);
 
 #ifdef GPU
 
@@ -83,6 +84,7 @@ void add_bias_gpu(float *output, float *biases, int batch, int n, int size);
 void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int size);
 
 void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta, float *error);
+void softmax_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights);
 void smooth_l1_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void weighted_delta_gpu(float *a, float *b, float *s, float *da, float *db, float *ds, int num, float *dc);

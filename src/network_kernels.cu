@@ -154,7 +154,7 @@ void forward_backward_network_gpu(network net, float *x, float *y)//这里的y�
     }
     state.input = *net.input_gpu;
     state.delta = 0;
-    state.truth = *net.truth_gpu;
+    state.truth = *net.truth_gpu;//gpu上的数据
     state.train = 1;
 #ifdef CUDNN_HALF
     int i;

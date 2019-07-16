@@ -497,6 +497,8 @@ struct layer {
     float * scale_updates_gpu;
     float * scale_change_gpu;
 
+    float * class_weights_gpu;//20190716
+
     float * output_gpu;
     float * loss_gpu;
     float * delta_gpu;

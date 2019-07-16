@@ -260,6 +260,17 @@ void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *er
     }
 }
 
+void softmax_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, float *error , float *class_weights)
+{
+    int i;
+    for(i = 0; i < n; ++i){
+        float t = truth[i];
+        float p = pred[i];
+        error[i] = (t) ? -log(p) : 0;
+        delta[i] = class_weights[i]*(t-p);
+    }
+}
+
 void logistic_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error)
 {
     int i;

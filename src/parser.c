@@ -41,6 +41,8 @@ typedef struct{
     list *options;
 }section;
 
+float *parse_yolo_class_weights(char *a , int num );
+
 list *read_cfg(char *filename);
 
 LAYER_TYPE string_to_layer_type(char * type)
@@ -260,9 +262,18 @@ connected_layer parse_connected(list *options, size_params params)
 softmax_layer parse_softmax(list *options, size_params params)
 {
 	int groups = option_find_int_quiet(options, "groups", 1);
-	softmax_layer layer = make_softmax_layer(params.batch, params.inputs, groups);
+    //++20190716 class_weights
+    char *cw = option_find_str(options, "class_weights" , 0 );
+    float *class_weights = parse_yolo_class_weights(cw,params.inputs);
+
+	softmax_layer layer = make_softmax_layer(params.batch, params.inputs, groups , class_weights );
+
+    if(class_weights)
+        free(class_weights);
+
 	layer.temperature = option_find_float_quiet(options, "temperature", 1);
 	char *tree_file = option_find_str(options, "tree", 0);
+
 	if (tree_file) layer.softmax_tree = read_tree(tree_file);
 	layer.w = params.w;
 	layer.h = params.h;
@@ -309,7 +320,7 @@ float *parse_yolo_class_weights(char *a , int num )
         assert(n==num);
         class_weights = (float*)calloc(n, sizeof(float));
         for (i = 0; i < n; ++i) {
-            int val = atof(a);
+            float val = atof(a);
             class_weights[i] = val;
             a = strchr(a, ',') + 1;
             printf("---Getting weights for class %d = %f \n", i , class_weights[i] );

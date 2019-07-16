@@ -129,5 +129,6 @@ void free_layer(layer l)
     if (l.rand_gpu)                cuda_free(l.rand_gpu);
     if (l.squared_gpu)             cuda_free(l.squared_gpu);
     if (l.norms_gpu)               cuda_free(l.norms_gpu);
+    if (l.class_weights_gpu) cuda_free(l.class_weights_gpu);
 #endif
 }
