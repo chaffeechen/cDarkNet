@@ -88,7 +88,7 @@ cDarkNet is modified by AlexeyAB's darknet
 
 10. classifier valid3 function added
 
-    usage: ./darknet classifier valid2 [same thing as usual]
+    usage: ./darknet classifier valid3 [same thing as usual]
 
     In valid3 mode, AUC of each class will be calculated.
     All AUCs will be averaged to generate avg_AUC.
