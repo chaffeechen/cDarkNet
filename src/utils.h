@@ -77,6 +77,7 @@ unsigned int uint_rand(unsigned int less_than);
 int check_array_is_nan(float *arr, int size);
 int check_array_is_inf(float *arr, int size);
 int int_index(int *a, int val, int n);
+float get_roc_auc(float** preds , int* class_ids , int classes, int N);
 
 #ifdef __cplusplus
 }
