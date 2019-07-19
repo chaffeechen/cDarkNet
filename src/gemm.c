@@ -697,7 +697,7 @@ void gemm_nn(int M, int N, int K, float ALPHA,
                 float A_PART = ALPHA*A[i*lda + k];
                 __m256 a256, b256, c256, result256;    // AVX
                 a256 = _mm256_set1_ps(A_PART);
-                for (j = 0; j < N - 8; j += 8) {
+                for (j = 0; j < N - 8; j += 8) {//intel加速，8位float同时处理8*32 = 256
                     b256 = _mm256_loadu_ps(&B[k*ldb + j]);
                     c256 = _mm256_loadu_ps(&C[i*ldc + j]);
                     // FMA - Intel Haswell (2013), AMD Piledriver (2012)

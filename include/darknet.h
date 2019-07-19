@@ -786,6 +786,7 @@ LIB_API detection *make_network_boxes(network *net, float thresh, int *num);
 LIB_API void reset_rnn(network *net);
 LIB_API float *network_predict_image(network *net, image im);
 LIB_API float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, network *existing_net);
+LIB_API float validate_detector_map0(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, const int map_points, int letter_box, network *existing_net);
 /*
 ++ 20190704
 mapType 
