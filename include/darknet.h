@@ -793,11 +793,17 @@ mapType
     0: normal 1: loading 2 images for 4 channels input
 */
 LIB_API float validate_detector_map2(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, network *existing_net , int mapType );
+LIB_API float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, float thresh_calc_avg_iou, const float iou_thresh, const int map_points, network *existing_net, int mapType);
 //detection and classification
 LIB_API float validate_detector_map_2stage(
     char *datacfg, char *cfgfileDet, char *weightfileDet, 
     char *cfgfileCls, char *weightfileCls,
     float thresh_calc_avg_iou, const float iou_thresh ,  int Version,
+    int mapType );
+LIB_API float validate_detector_map0_2stage(
+    char *datacfg, char *cfgfileDet, char *weightfileDet, 
+    char *cfgfileCls, char *weightfileCls,
+    float thresh_calc_avg_iou, const float iou_thresh ,  int Version ,
     int mapType );
 /*
 ++ 20190704
