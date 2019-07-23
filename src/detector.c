@@ -2366,6 +2366,8 @@ float validate_detector_map0_2stage(
             avg_precision = avg_precision / map_points;
         }
 
+        if ( i==0) printf("\n");
+
         printf("class_id = %d, name = %s, ap = %2.2f%%   \t (TP = %d, FP = %d), ",
             i, names[i], avg_precision * 100, tp_for_thresh_per_class[i], fp_for_thresh_per_class[i]);
 
@@ -3872,6 +3874,8 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
             }
             avg_precision = avg_precision / map_points;
         }
+
+        if ( i==0) printf("\n");
 
         printf("class_id = %d, name = %s, ap = %2.2f%%   \t (TP = %d, FP = %d), ",
             i, names[i], avg_precision * 100, tp_for_thresh_per_class[i], fp_for_thresh_per_class[i]);

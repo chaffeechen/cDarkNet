@@ -41,17 +41,19 @@ softmax_layer make_softmax_layer(int batch, int inputs, int groups , float* clas
     l.delta = (float*)calloc(inputs * batch, sizeof(float));
     l.cost = (float*)calloc(1, sizeof(float));
 
+    float* cls_weights = 0;
     if(!class_weights){
-        class_weights = (float*)calloc(inputs, sizeof(float));
+        cls_weights = (float*)calloc(inputs, sizeof(float));
         for ( int i = 0 ; i < inputs ; i++ ) 
-            class_weights[i] = 1.0;
-        free(class_weights);
+            cls_weights[i] = 1.0;
+        // free(class_weights);
     }
 
     float* clsw = (float*)calloc(inputs*batch,sizeof(float));
     for(int i = 0 ; i < batch ; i++ ) 
-        memcpy(clsw+i*inputs , class_weights , inputs*sizeof(float));
+        memcpy(clsw+i*inputs , cls_weights , inputs*sizeof(float));
     l.class_weights = clsw;
+    if(cls_weights) free(cls_weights);//+20190723 bugfix
 
     l.forward = forward_softmax_layer;
     l.backward = backward_softmax_layer;
