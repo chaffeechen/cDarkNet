@@ -2250,6 +2250,7 @@ float validate_detector_map0_2stage(
     typedef struct {
         double precision;
         double recall;
+        double f1;
         int tp, fp, fn;
     } pr_t;
 
@@ -2259,6 +2260,8 @@ float validate_detector_map0_2stage(
         pr[i] = (pr_t*)calloc(detections_count, sizeof(pr_t));
     }
     printf("\n detections_count = %d, unique_truth_count = %d  \n", detections_count, unique_truth_count);
+
+    pr_t *max_f1_score = (pr_t*)calloc(classes, sizeof(pr_t));
 
 
     int* detection_per_class_count = (int*)calloc(classes, sizeof(int));
@@ -2308,6 +2311,13 @@ float validate_detector_map0_2stage(
             if ((tp + fn) > 0) pr[i][rank].recall = (double)tp / (double)(tp + fn);
             else pr[i][rank].recall = 0;
 
+            //20190723 +f1-score
+            if ((tp + fn) > 0) pr[i][rank].f1 = (2.0*pr[i][rank].precision*pr[i][rank].recall) / (pr[i][rank].precision + pr[i][rank].recall);
+            else pr[i][rank].f1 = 0;
+            //max reserved
+            if ( pr[i][rank].f1 > max_f1_score[i].f1 )
+                max_f1_score[i] = pr[i][rank];
+
             if (rank == (detections_count - 1) && detection_per_class_count[i] != (tp + fp)) {    // check for last rank
                     printf(" class_id: %d - detections = %d, tp+fp = %d, tp = %d, fp = %d \n", i, detection_per_class_count[i], tp+fp, tp, fp);
             }
@@ -2318,6 +2328,7 @@ float validate_detector_map0_2stage(
 
 
     double mean_average_precision = 0;
+    double mean_average_f1 = 0;
 
     for (i = 0; i < classes; ++i) {
         double avg_precision = 0;
@@ -2374,9 +2385,13 @@ float validate_detector_map0_2stage(
         float class_precision = (float)tp_for_thresh_per_class[i] / ((float)tp_for_thresh_per_class[i] + (float)fp_for_thresh_per_class[i]);
         float class_recall = (float)tp_for_thresh_per_class[i] / ((float)tp_for_thresh_per_class[i] + (float)(truth_classes_count[i] - tp_for_thresh_per_class[i]));
         float class_F1 = 2.F * class_precision * class_recall / (class_precision+class_recall);
-        printf("Precision = %1.2f, Recall = %1.2f, F1_score = %1.2f ,avg IOU = %2.2f%% \n", class_precision, class_recall, class_F1 ,avg_iou_per_class[i]);
+        // printf("Precision = %1.2f, Recall = %1.2f, F1_score = %1.2f ,avg IOU = %2.2f%% \n", class_precision, class_recall, class_F1 ,avg_iou_per_class[i]);
+        printf("Precision = %1.2f, Recall = %1.2f, F1_score = %1.2f ,avg IOU = %2.2f%%, ", class_precision, class_recall, class_F1 ,avg_iou_per_class[i] );
+        printf("Precision(@maxf1) = %1.2f, Recall(@maxf1) = %1.2f, F1_score(max) = %1.2f, Total Num = %d\n" , 
+            max_f1_score[i].precision , max_f1_score[i].recall , max_f1_score[i].f1 , truth_classes_count[i] );
 
         mean_average_precision += avg_precision;
+        mean_average_f1 += max_f1_score[i].f1;
     }
 
     const float cur_precision = (float)tp_for_thresh / ((float)tp_for_thresh + (float)fp_for_thresh);
@@ -2397,11 +2412,13 @@ float validate_detector_map0_2stage(
         thresh_calc_avg_iou, detected_cur_precision, detected_cur_recall, detected_f1_score, detected_tp_for_thresh, detected_fp_for_thresh, unique_truth_count - detected_tp_for_thresh, detected_avg_iou*100);
 
     mean_average_precision = mean_average_precision / classes;
+    mean_average_f1 = mean_average_f1 / classes;
     printf("\n IoU threshold = %2.0f %%, ", iou_thresh * 100);
     if (map_points) printf("used %d Recall-points \n", map_points);
     else printf("used Area-Under-Curve for each unique Recall \n");
 
     printf(" mean average precision (mAP@%0.2f) = %f, or %2.2f %% \n", iou_thresh, mean_average_precision, mean_average_precision * 100);
+    printf(" mean average max_F1_score = %1.2f \n",  mean_average_f1);
 
     for (i = 0; i < classes; ++i) {
         free(pr[i]);
@@ -2415,6 +2432,8 @@ float validate_detector_map0_2stage(
     free(tp_for_thresh_per_class);
     free(fp_for_thresh_per_class);
     free(indexes);
+
+    free(max_f1_score);
 
     fprintf(stderr, "Total Detection Time: %f Seconds\n", (double)(time(0) - start));
     // printf("\nSet -points flag:\n");
@@ -3759,6 +3778,7 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
     typedef struct {
         double precision;
         double recall;
+        double f1;
         int tp, fp, fn;
     } pr_t;
 
@@ -3776,6 +3796,8 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
     }
 
     int* truth_flags = (int*)calloc(unique_truth_count, sizeof(int));
+
+    pr_t *max_f1_score = (pr_t*)calloc(classes, sizeof(pr_t));
 
     int rank;
     for (rank = 0; rank < detections_count; ++rank) {
@@ -3817,6 +3839,13 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
             if ((tp + fn) > 0) pr[i][rank].recall = (double)tp / (double)(tp + fn);
             else pr[i][rank].recall = 0;
 
+            //20190723 +f1-score
+            if ((tp + fn) > 0) pr[i][rank].f1 = (2.0*pr[i][rank].precision*pr[i][rank].recall) / (pr[i][rank].precision + pr[i][rank].recall);
+            else pr[i][rank].f1 = 0;
+            //max reserved
+            if ( pr[i][rank].f1 > max_f1_score[i].f1 )
+                max_f1_score[i] = pr[i][rank];
+
             if (rank == (detections_count - 1) && detection_per_class_count[i] != (tp + fp)) {    // check for last rank
                     printf(" class_id: %d - detections = %d, tp+fp = %d, tp = %d, fp = %d \n", i, detection_per_class_count[i], tp+fp, tp, fp);
             }
@@ -3827,6 +3856,7 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
 
 
     double mean_average_precision = 0;
+    double mean_average_f1 = 0;
 
     for (i = 0; i < classes; ++i) {
         double avg_precision = 0;
@@ -3883,10 +3913,13 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
         float class_precision = (float)tp_for_thresh_per_class[i] / ((float)tp_for_thresh_per_class[i] + (float)fp_for_thresh_per_class[i]);
         float class_recall = (float)tp_for_thresh_per_class[i] / ((float)tp_for_thresh_per_class[i] + (float)(truth_classes_count[i] - tp_for_thresh_per_class[i]));
         float class_F1 = 2.F * class_precision * class_recall / (class_precision+class_recall);
-        printf("Precision = %1.2f, Recall = %1.2f, F1_score = %1.2f ,avg IOU = %2.2f%% \n", class_precision, class_recall, class_F1 ,avg_iou_per_class[i]);
+        printf("Precision = %1.2f, Recall = %1.2f, F1_score = %1.2f ,avg IOU = %2.2f%%, ", class_precision, class_recall, class_F1 ,avg_iou_per_class[i] );
+        printf("Precision(@maxf1) = %1.2f, Recall(@maxf1) = %1.2f, F1_score(max) = %1.2f, Total Num = %d\n" , 
+            max_f1_score[i].precision , max_f1_score[i].recall , max_f1_score[i].f1 , truth_classes_count[i] );
 
         mean_average_precision += avg_precision;
-    }
+        mean_average_f1 += max_f1_score[i].f1;
+    } //for (i = 0; i < classes; ++i)
 
     const float cur_precision = (float)tp_for_thresh / ((float)tp_for_thresh + (float)fp_for_thresh);
     const float cur_recall = (float)tp_for_thresh / ((float)tp_for_thresh + (float)(unique_truth_count - tp_for_thresh));
@@ -3906,11 +3939,13 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
         thresh_calc_avg_iou, detected_cur_precision, detected_cur_recall, detected_f1_score, detected_tp_for_thresh, detected_fp_for_thresh, unique_truth_count - detected_tp_for_thresh, detected_avg_iou*100);
 
     mean_average_precision = mean_average_precision / classes;
+    mean_average_f1 = mean_average_f1 / classes;
     printf("\n IoU threshold = %2.0f %%, ", iou_thresh * 100);
     if (map_points) printf("used %d Recall-points \n", map_points);
     else printf("used Area-Under-Curve for each unique Recall \n");
 
     printf(" mean average precision (mAP@%0.2f) = %f, or %2.2f %% \n", iou_thresh, mean_average_precision, mean_average_precision * 100);
+    printf(" mean average max_F1_score = %1.2f \n",  mean_average_f1);
 
     for (i = 0; i < classes; ++i) {
         free(pr[i]);
@@ -3923,6 +3958,8 @@ float validate_detector_map02(char *datacfg, char *cfgfile, char *weightfile, fl
     free(avg_iou_per_class);
     free(tp_for_thresh_per_class);
     free(fp_for_thresh_per_class);
+
+    free(max_f1_score);
 
     fprintf(stderr, "Total Detection Time: %f Seconds\n", (double)(time(0) - start));
     // printf("\nSet -points flag:\n");
