@@ -41,12 +41,13 @@ softmax_layer make_softmax_layer(int batch, int inputs, int groups , float* clas
     l.delta = (float*)calloc(inputs * batch, sizeof(float));
     l.cost = (float*)calloc(1, sizeof(float));
 
-    float* cls_weights = 0;
+    float* cls_weights = (float*)calloc(inputs, sizeof(float));
     if(!class_weights){
-        cls_weights = (float*)calloc(inputs, sizeof(float));
         for ( int i = 0 ; i < inputs ; i++ ) 
             cls_weights[i] = 1.0;
         // free(class_weights);
+    } else {
+        memcpy(cls_weights , class_weights , inputs*sizeof(float));
     }
 
     float* clsw = (float*)calloc(inputs*batch,sizeof(float));
