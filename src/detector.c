@@ -5208,6 +5208,7 @@ void run_detector(int argc, char **argv)
     else if (0 == strcmp (argv[2],"map02")) validate_detector_map02(datacfg, cfg, weights, thresh, iou_thresh, 11 ,NULL,0);
     else if (0 == strcmp (argv[2],"map02d")) validate_detector_map02d(datacfg, cfg, weights, thresh, iou_thresh, 11 ,NULL,0);
     else if (0 == strcmp (argv[2],"map3")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL, 1);//support 4 channel input only
+    else if (0 == strcmp (argv[2],"map03")) validate_detector_map02(datacfg, cfg, weights, thresh, iou_thresh, 11 ,NULL,1);
     else if (0 == strcmp (argv[2],"map_2stage_v0")) {//CLS before DET NMS, accurate but slow
             //+20190710 2 stage map calculation
         assert(argc > 7);
