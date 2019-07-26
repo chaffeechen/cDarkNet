@@ -43,10 +43,13 @@ void l2_cpu(int n, float *pred, float *truth, float *delta, float *error);
 void weighted_sum_cpu(float *a, float *b, float *s, int num, float *c);
 
 void softmax(float *input, int n, float temp, float *output, int stride);
+void logistic(float *input, int n, float temp, float *output, int stride);
 void upsample_cpu(float *in, int w, int h, int c, int batch, int stride, int forward, float scale, float *out);
 void softmax_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output);
+void logistic_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output);
 void softmax_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error);
 void softmax_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, float *error , float *class_weights);
+void logistic_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float *class_weights);
 
 #ifdef GPU
 
@@ -85,6 +88,7 @@ void backward_bias_gpu(float *bias_updates, float *delta, int batch, int n, int 
 
 void softmax_x_ent_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void softmax_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights);
+void logistic_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights);
 void smooth_l1_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void l2_gpu(int n, float *pred, float *truth, float *delta, float *error);
 void weighted_delta_gpu(float *a, float *b, float *s, float *da, float *db, float *ds, int num, float *dc);
@@ -94,6 +98,7 @@ void mult_add_into_gpu(int num, float *a, float *b, float *c);
 void reorg_ongpu(float *x, int w, int h, int c, int batch, int stride, int forward, float *out);
 
 void softmax_gpu_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output);
+void logistic_gpu_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output);
 void softmax_gpu(float *input, int n, int offset, int groups, float temp, float *output);
 void adam_gpu(int n, float *x, float *m, float *v, float B1, float B2, float rate, float eps, int t);
 void adam_update_gpu(float *w, float *d, float *m, float *v, float B1, float B2, float eps, float decay, float rate, int n, int batch, int t);

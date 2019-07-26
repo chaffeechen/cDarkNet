@@ -271,6 +271,17 @@ void softmax_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, floa
     }
 }
 
+void logistic_x_ent_cpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float *class_weights)
+{
+    int i;
+    for(i = 0; i < n; ++i){
+        float t = truth[i];
+        float p = pred[i];
+        error[i] = -t*log(p) - (1-t)*log(1-p);
+        delta[i] = class_weights[i]*(t-p);
+    }
+}
+
 void logistic_x_ent_cpu(int n, float *pred, float *truth, float *delta, float *error)
 {
     int i;
@@ -318,6 +329,15 @@ void softmax(float *input, int n, float temp, float *output, int stride)
     }
 }
 
+void logistic(float *input, int n, float temp, float *output, int stride)
+{
+    int i;
+    float sum = 0;
+    for(i = 0; i < n; ++i){
+        output[i*stride] = 1.f/(1.f + expf(-input[i*stride]));
+    }
+}
+
 // softmax_cpu   (net.input,l.inputs/l.groups, l.batch, l.inputs, l.groups, l.inputs/l.groups, 1, l.temperature, l.output);
 void softmax_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
 {
@@ -325,6 +345,15 @@ void softmax_cpu(float *input, int n, int batch, int batch_offset, int groups, i
     for(b = 0; b < batch; ++b){
         for(g = 0; g < groups; ++g){
             softmax(input + b*batch_offset + g*group_offset, n, temp, output + b*batch_offset + g*group_offset, stride);
+        }
+    }
+}
+
+void logistic_cpu(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output){
+    int g, b;
+    for(b = 0; b < batch; ++b){
+        for(g = 0; g < groups; ++g){
+            logistic(input + b*batch_offset + g*group_offset, n, temp, output + b*batch_offset + g*group_offset, stride);
         }
     }
 }

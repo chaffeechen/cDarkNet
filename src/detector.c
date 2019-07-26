@@ -2055,6 +2055,7 @@ float validate_detector_map0_2stage(
                     int dy = cy - h/2;
 
                     image cropped = crop_image2(imgX, dx , dy , w , h );
+                    // save_image(cropped,"1.jpg");
                     //fork from classifier.c
                     image resized = resize_min(cropped, netCls.w);
                     image cropped2 = crop_image(resized, (resized.w - netCls.w)/2, (resized.h - netCls.h)/2, netCls.w, netCls.h);
@@ -5209,7 +5210,7 @@ void run_detector(int argc, char **argv)
     else if (0 == strcmp (argv[2],"map02d")) validate_detector_map02d(datacfg, cfg, weights, thresh, iou_thresh, 11 ,NULL,0);
     else if (0 == strcmp (argv[2],"map3")) validate_detector_map2(datacfg, cfg, weights, thresh, iou_thresh, NULL, 1);//support 4 channel input only
     else if (0 == strcmp (argv[2],"map03")) validate_detector_map02(datacfg, cfg, weights, thresh, iou_thresh, 11 ,NULL,1);
-    else if (0 == strcmp (argv[2],"map_2stage_v0")) {//CLS before DET NMS, accurate but slow
+    else if (0 == strcmp (argv[2],"map_2stage_v0")) {//CLS after DET NMS, fast but a bit different
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -5219,7 +5220,7 @@ void run_detector(int argc, char **argv)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
         validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 0 ,0);
     }
-    else if (0 == strcmp (argv[2],"map_2stage_v1")) {//CLS after DET NMS, fast but a bit different
+    else if (0 == strcmp (argv[2],"map_2stage_v1")) {//CLS before DET NMS, accurate but slow
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -5239,7 +5240,7 @@ void run_detector(int argc, char **argv)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
         validate_detector_map_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 2 ,0);
     }
-    else if (0 == strcmp (argv[2],"map0_2stage_v0")) {//CLS before DET NMS, accurate but slow
+    else if (0 == strcmp (argv[2],"map0_2stage_v0")) {//CLS after DET NMS, fast but a bit different
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;
@@ -5249,7 +5250,7 @@ void run_detector(int argc, char **argv)
                 if (weightsCls[strlen(weightsCls) - 1] == 0x0d) weightsCls[strlen(weightsCls) - 1] = 0;        
         validate_detector_map0_2stage(datacfg, cfg, weights, cfgCls , weightsCls ,thresh, iou_thresh, 0 ,0);
     }
-    else if (0 == strcmp (argv[2],"map0_2stage_v1")) {//CLS after DET NMS, fast but a bit different
+    else if (0 == strcmp (argv[2],"map0_2stage_v1")) {//CLS before DET NMS, accurate but slow
             //+20190710 2 stage map calculation
         assert(argc > 7);
         char *cfgCls = (argc > 6) ? argv[6]:0;

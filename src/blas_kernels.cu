@@ -792,9 +792,26 @@ __global__ void softmax_x_ent_kernel_clsw(int n, float *pred, float *truth, floa
     }
 }
 
+__global__ void logistic_x_ent_kernel_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights)
+{
+    int i = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if (i < n) {
+        float t = truth[i];
+        float p = pred[i];
+        error[i] = -t*log(p) - (1-t)*log(1-p);
+        delta[i] = class_weights[i]*(t - p);
+    }
+}
+
 extern "C" void softmax_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights)
 {
     softmax_x_ent_kernel_clsw << <cuda_gridsize(n), BLOCK, 0, get_cuda_stream() >> >(n, pred, truth, delta, error, class_weights);
+    CHECK_CUDA(cudaPeekAtLastError());
+}
+
+extern "C" void logistic_x_ent_gpu_clsw(int n, float *pred, float *truth, float *delta, float *error, float* class_weights)
+{
+    logistic_x_ent_kernel_clsw << <cuda_gridsize(n), BLOCK, 0, get_cuda_stream() >> >(n, pred, truth, delta, error, class_weights);
     CHECK_CUDA(cudaPeekAtLastError());
 }
 
@@ -914,6 +931,15 @@ __device__ void softmax_device_new_api(float *input, int n, float temp, int stri
 	}
 }
 
+__device__ void logistic_device_new_api(float *input, int n, float temp, int stride, float *output)
+{
+    int i;
+    float sum = 0;
+    for (i = 0; i < n; ++i) {
+        output[i*stride] = 1.f/(1.f + expf(-input[i*stride]));
+    }
+}
+
 __global__ void softmax_kernel_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
 {
 	int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
@@ -923,9 +949,24 @@ __global__ void softmax_kernel_new_api(float *input, int n, int batch, int batch
 	softmax_device_new_api(input + b*batch_offset + g*group_offset, n, temp, stride, output + b*batch_offset + g*group_offset);
 }
 
+__global__ void logistic_kernel_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
+{
+    int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if (id >= batch*groups) return;
+    int b = id / groups;
+    int g = id % groups;
+    logistic_device_new_api(input + b*batch_offset + g*group_offset, n, temp, stride, output + b*batch_offset + g*group_offset);
+}
+
 extern "C" void softmax_gpu_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
 {
 	softmax_kernel_new_api << <cuda_gridsize(batch*groups), BLOCK, 0, get_cuda_stream() >> >(input, n, batch, batch_offset, groups, group_offset, stride, temp, output);
+    CHECK_CUDA(cudaPeekAtLastError());
+}
+
+extern "C" void logistic_gpu_new_api(float *input, int n, int batch, int batch_offset, int groups, int group_offset, int stride, float temp, float *output)
+{
+    logistic_kernel_new_api << <cuda_gridsize(batch*groups), BLOCK, 0, get_cuda_stream() >> >(input, n, batch, batch_offset, groups, group_offset, stride, temp, output);
     CHECK_CUDA(cudaPeekAtLastError());
 }
 

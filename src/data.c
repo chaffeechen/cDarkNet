@@ -626,6 +626,28 @@ void fill_truth(char *path, char **labels, int k, float *truth)
     if(count != 1) printf("Too many or too few labels: %d, %s\n", count, path);
 }
 
+void fill_truth_txt(char *path , int k, float *truth)
+{
+    char labelpath[4096];
+    replace_image_to_label(path, labelpath);
+    int i,cnt=0;
+    memset(truth, 0, k*sizeof(float));
+
+    FILE* fp = fopen(labelpath , "r");
+    float val = 0.0;
+    if(fp) {
+        while(fscanf(fp, "%f", &val) == 1){
+            if( cnt < k ) {
+                truth[cnt++] = val;
+            }
+        }
+        fclose(fp);
+        fp = NULL;
+    } else {
+        printf("%s cannot be read\n" , path );
+    }
+}
+
 void fill_hierarchy(float *truth, int k, tree *hierarchy)
 {
     int j;
@@ -667,6 +689,16 @@ matrix load_labels_paths(char **paths, int n, char **labels, int k, tree *hierar
         if(hierarchy){
             fill_hierarchy(y.vals[i], k, hierarchy);
         }
+    }
+    return y;
+}
+
+matrix load_labels_paths_txt(char **paths, int n, int k)
+{
+    matrix y = make_matrix(n, k);
+    int i;
+    for(i = 0; i < n; ++i){
+        fill_truth_txt(paths[i], k, y.vals[i]);
     }
     return y;
 }
@@ -1582,7 +1614,9 @@ void *load_thread(void *ptr)
     if (a.type == OLD_CLASSIFICATION_DATA){
         *a.d = load_data_old(a.paths, a.n, a.m, a.labels, a.classes, a.w, a.h);
     } else if (a.type == CLASSIFICATION_DATA){
-        *a.d = load_data_augment(a.paths, a.n, a.m, a.labels, a.classes, a.hierarchy, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
+        *a.d = load_data_augment(a.paths, a.n, a.m, a.labels, a.classes, a.hierarchy, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure, 0);
+    } else if (a.type == CLASSIFICATION_TXT_DATA){
+        *a.d = load_data_augment(a.paths, a.n, a.m, a.labels, a.classes, a.hierarchy, a.flip, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure, 1);
     } else if (a.type == SUPER_DATA){
         *a.d = load_data_super(a.paths, a.n, a.m, a.w, a.h, a.scale);
     } else if (a.type == WRITING_DATA){
@@ -1738,13 +1772,20 @@ data load_data_super(char **paths, int n, int m, int w, int h, int scale)
     return d;
 }
 
-data load_data_augment(char **paths, int n, int m, char **labels, int k, tree *hierarchy, int use_flip, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure)
+data load_data_augment(char **paths, int n, int m, char **labels, int k, tree *hierarchy, int use_flip, int min, int max, int size, float angle, float aspect, float hue, float saturation, float exposure, int Version)
 {
     if(m) paths = get_random_paths(paths, n, m);
     data d = {0};
     d.shallow = 0;
     d.X = load_image_augment_paths(paths, n, use_flip, min, max, size, angle, aspect, hue, saturation, exposure);
-    d.y = load_labels_paths(paths, n, labels, k, hierarchy);
+    if (Version == 0 ) {
+        d.y = load_labels_paths(paths, n, labels, k, hierarchy);    
+    } else if (Version==1) {
+        d.y = load_labels_paths_txt(paths,n,k);
+    } else {
+        d.y = load_labels_paths(paths, n, labels, k, hierarchy);
+    }
+    
     // d.z = make_matrix(1,1);
     if(m) free(paths);
     return d;

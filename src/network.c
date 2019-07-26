@@ -32,6 +32,7 @@
 #include "yolo2_layer.h"
 #include "upsample_layer.h"
 #include "parser.h"
+#include "bce_layer.h"
 
 load_args get_base_args(network *net)
 {

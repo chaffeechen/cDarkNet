@@ -34,6 +34,7 @@
 #include "upsample_layer.h"
 #include "yolo_layer.h"
 #include "yolo2_layer.h"
+#include "bce_layer.h"
 #include <stdint.h>
 
 typedef struct{
@@ -81,6 +82,7 @@ LAYER_TYPE string_to_layer_type(char * type)
             || strcmp(type, "[softmax]")==0) return SOFTMAX;
     if (strcmp(type, "[route]")==0) return ROUTE;
     if (strcmp(type, "[upsample]") == 0) return UPSAMPLE;
+    if (strcmp(type, "[bce]") == 0) return BCE;
     return BLANK;
 }
 
@@ -281,6 +283,31 @@ softmax_layer parse_softmax(list *options, size_params params)
 	layer.spatial = option_find_float_quiet(options, "spatial", 0);
 	layer.noloss = option_find_int_quiet(options, "noloss", 0);
 	return layer;
+}
+
+bce_layer parse_bce(list *options, size_params params)
+{
+    int groups = option_find_int_quiet(options, "groups", 1);
+    //++20190716 class_weights
+    char *cw = option_find_str(options, "class_weights" , 0 );
+    float *class_weights = parse_yolo_class_weights(cw,params.inputs);
+
+    bce_layer layer = make_bce_layer(params.batch, params.inputs, groups , class_weights );
+
+    if(class_weights)
+        free(class_weights);
+
+    layer.temperature = option_find_float_quiet(options, "temperature", 1);
+    // char *tree_file = option_find_str(options, "tree", 0);]
+    // if (tree_file) layer.softmax_tree = read_tree(tree_file);
+
+    layer.w = params.w;
+    layer.h = params.h;
+    layer.c = params.c;
+    layer.spatial = option_find_float_quiet(options, "spatial", 0);
+    layer.noloss = option_find_int_quiet(options, "noloss", 0);
+
+    return layer;
 }
 
 int *parse_yolo_mask(char *a, int *num)
@@ -918,6 +945,9 @@ network parse_network_cfg_custom(char *filename, int batch, int time_steps)
             l = parse_detection(options, params);
         }else if(lt == SOFTMAX){
             l = parse_softmax(options, params);
+            net.hierarchy = l.softmax_tree;
+        }else if(lt == BCE){
+            l = parse_bce(options, params);
             net.hierarchy = l.softmax_tree;
         }else if(lt == NORMALIZATION){
             l = parse_normalization(options, params);
