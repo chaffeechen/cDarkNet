@@ -936,7 +936,7 @@ __device__ void logistic_device_new_api(float *input, int n, float temp, int str
     int i;
     float sum = 0;
     for (i = 0; i < n; ++i) {
-        output[i*stride] = 1.f/(1.f + expf(-input[i*stride]));
+        output[i*stride] = 1.0/(1.0 + expf(-input[i*stride]));
     }
 }
 
