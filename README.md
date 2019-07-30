@@ -93,6 +93,43 @@ cDarkNet is modified by AlexeyAB's darknet
     In valid3 mode, AUC of each class will be calculated.
     All AUCs will be averaged to generate avg_AUC.
     
+11. classifier valid4 function added
+
+    usage: ./darknet classifier valid4 [same thing as usual]
+
+    In valid4 mode, AUC of each class will be calculated.
+    All AUCs will be averaged to generate avg_AUC.
+    valid 3 and valid 4 are equals.
+    Difference between them is inner code of calculating AUC, which is written into a function named 'get_roc_auc'  in valid4
+
+12. detector map02 and detector map03 is added to replace map2 and map3
+
+    usage:  ./darknet detector map02 [datacfg] [network_cfg] [network_weights] -thresh -iou_thresh -dont_show
+
+    ./darknet detector map03 [datacfg] [network_cfg] [network_weights] -thresh -iou_thresh -dont_show
+
+    map02 was cloned from the newest map calculation code from AlexeyAB and modified to output more individual results.
+    map03 was designed for inputting data with 4 channels, where the 4th channel is another image going like XXX_bg.jpe/tiff/png
+
+13. map0_2stage_v0 and map0_2stage_v1 is added to support mAP calculation with 2 stage model.
+
+    usage:  ./darknet detector map0_2stage_v0 [datacfg] [detection_cfg] [detection_weights] [classification_cfg] [classification_weights] -thresh -iou_thresh -dont_show
+
+    The mAP will be caculated for models combined by detection and classification. 
+    The difference between map_2stage_v0 and map_2stage_v1 is that 'v0' is much faster and classification is predicted after NMS of detection.
+    'v1' is accurate and the classification is predicted before NMS, and NMS is done for multi-classification.
+    However, 'v0' is also correct because the first stage is responsible for detection and the classification network should only takes care of the candidate bbox produced by the first stage.
+    Usually, 'v0' is used to test the model in order to meet the fact.
+
+14. bce_layer is added in comparison with softmax layer
+
+    bce_layer can be used instead of softmax layer during the classification task, where the each sample may belong multi-class. 
+    However, softmax layer intuitly supports the situation that the target belongs to one class only.
+    Use '[bce]' instead of '[softmax]' in the last layer.
+    Use 'classifier train2' instead of 'classifier train'.
+    'train2' reads labels of samples from the same folder with extension of image file replaced by '.txt'.
+    Labels are stored as vectors in 'xxx.txt' files.
+    While 'train' is the original function, it reads labels by matching specific phrase whether appearing in the name of image( or path ).
 
 
    
