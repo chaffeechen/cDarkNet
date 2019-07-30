@@ -1,0 +1,3 @@
+train  = /home/ubuntu/CV/data/person/train.txt
+valid  = /home/ubuntu/CV/data/person/test.txt
+

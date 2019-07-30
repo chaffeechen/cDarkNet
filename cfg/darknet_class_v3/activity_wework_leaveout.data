@@ -1,0 +1,8 @@
+classes=7
+train  = /home/ubuntu/CV/data/activity_7_classes/class/tr_medium.txt
+valid  = /home/ubuntu/CV/data/wework_activity/Classification/test2.txt
+labels = /home/ubuntu/darknet/cfg/darknet_class_v3/label.list
+names =  /home/ubuntu/darknet/cfg/darknet_class_v3/label.names
+backup = /home/ubuntu/darknet/backup/ww_class3
+top = 2
+

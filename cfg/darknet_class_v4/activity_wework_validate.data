@@ -1,0 +1,8 @@
+classes=10
+train  = /home/ubuntu/CV/data/Classification2/train.txt
+valid  = /home/ubuntu/CV/data/Classification2/validate.txt
+labels = /home/ubuntu/darknet/cfg/darknet_class_v4/label.list
+names =  /home/ubuntu/darknet/cfg/darknet_class_v4/label.names
+backup = /home/ubuntu/darknet/backup/ww_class4
+top = 2
+

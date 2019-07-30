@@ -1,0 +1,6 @@
+classes= 1
+train  = /home/ubuntu/CV/data/wework_activity/fake_detection/fake_train.txt
+valid  = /home/ubuntu/CV/data/wework_activity/fake_detection/fake_test.txt
+names =  /home/ubuntu/darknet/cfg/yolov3_ww_bgh/activity_wework.names
+backup = /home/ubuntu/darknet/backup/ww_bgh
+
