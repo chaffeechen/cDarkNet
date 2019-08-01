@@ -123,7 +123,7 @@ cDarkNet is modified by AlexeyAB's darknet
 
 14. bce_layer is added in comparison with softmax layer
 
-    bce_layer can be used instead of softmax layer during the classification task, where the each sample may belong multi-class. 
+    bce_layer can be used instead of softmax layer during the classification task, where the each sample may belong to multi-class. 
     However, softmax layer intuitly supports the situation that the target belongs to one class only.
     Use '[bce]' instead of '[softmax]' in the last layer.
     Use 'classifier train2' instead of 'classifier train'.
