@@ -916,6 +916,69 @@ int cls_comparator_utils(const void *pa, const void *pb)
     return 0;
 }    
 
+float get_roc_auc2(float** preds , float** class_ids , int classes, int m){
+   float *aucs = (float*)calloc(classes,sizeof(float));
+    int i,j;
+
+    cls_tt* cls_result = (cls_tt*)calloc(m,sizeof(cls_tt));
+    for ( i = 0 ; i < classes ; i++ ) {
+        for ( j = 0 ; j < m ; j++ ) {
+            cls_result[j].prob = preds[j][i];
+            cls_result[j].label = (int)(class_ids[j][i]);
+        }
+
+        qsort(cls_result , m , sizeof(cls_tt) , cls_comparator_utils);
+        int fp = 0, tp = 0;
+        float* arr_tp = (float*)calloc(m,sizeof(float));
+        float* arr_fp = (float*)calloc(m,sizeof(float));
+
+        int pos = 0;
+        int neg = 0;
+        for ( j = 0 ; j < m ; j++ ){
+            pos+=cls_result[j].label;
+            neg+=1-cls_result[j].label;
+        }
+
+        for ( j = 0 ; j < m; j++ ) {
+            tp += cls_result[j].label;
+            fp += 1-cls_result[j].label;
+            arr_fp[j] = neg > 0 ? ((float)(1.0*fp)) / neg : 0;
+            arr_tp[j] = pos > 0 ? ((float)(1.0*tp)) / pos : 0;
+        }
+
+        float prev_x = 0;
+        float auc = 0;
+        for (int j = 0; j < m ; j++ ) {
+            if ( arr_fp[j] - prev_x > 1e-6 || prev_x - arr_fp[j] > 1e-6 ) {
+                auc += (arr_fp[j]-prev_x)*arr_tp[j];
+                prev_x = arr_fp[j];
+            }
+        }
+        aucs[i] = auc;
+        printf("class: %d , AUC = %f\n" , i , auc );
+
+        free(arr_tp);
+        free(arr_fp);
+        
+
+    }
+
+    
+    
+
+    float avg_auc = 0;
+    for ( i = 0 ; i < classes ; i++ )
+        avg_auc += aucs[i];
+    avg_auc /= classes;
+
+    printf("Total ,avg-AUC = %f\n" , avg_auc );
+
+    free(cls_result);
+    free(aucs);
+
+    return avg_auc;
+}
+
 float get_roc_auc(float** preds , int* class_ids , int classes, int m)
 {
     float *aucs = (float*)calloc(classes,sizeof(float));
@@ -979,3 +1042,4 @@ float get_roc_auc(float** preds , int* class_ids , int classes, int m)
 
     return avg_auc;
 }
+

@@ -32,6 +32,7 @@ float validate_classifier_single(char *datacfg, char *filename, char *weightfile
 float validate_classifier_single2(char *datacfg, char *filename, char *weightfile, network *existing_net, float thresh ,int topk_custom);
 float validate_classifier_single3(char *datacfg, char *filename, char *weightfile, network *existing_net, int topk_custom);
 float validate_classifier_single4(char *datacfg, char *filename, char *weightfile, network *existing_net, int topk_custom);
+float validate_classifier_single5(char *datacfg, char *filename, char *weightfile, network *existing_net, int topk_custom);
 
 typedef struct{
     float prob;
@@ -1155,6 +1156,153 @@ float validate_classifier_single4(char *datacfg, char *filename, char *weightfil
     return topk_result;
 }
 
+
+float validate_classifier_single5(char *datacfg, char *filename, char *weightfile, network *existing_net, int topk_custom)
+{
+    int i, j;
+    network net;
+    int old_batch = -1;
+    if (existing_net) {
+        net = *existing_net;    // for validation during training
+        old_batch = net.batch;
+        set_batch_network(&net, 1);
+    }
+    else {
+        net = parse_network_cfg_custom(filename, 1, 0);
+        if (weightfile) {
+            load_weights(&net, weightfile);
+        }
+        //set_batch_network(&net, 1);
+        fuse_conv_batchnorm(net);
+        calculate_binary_weights(net);
+    }
+    srand(time(0));
+
+    list *options = read_data_cfg(datacfg);
+
+    char *label_list = option_find_str(options, "labels", "data/labels.list");
+    char *leaf_list = option_find_str(options, "leaves", 0);
+    if(leaf_list) change_leaves(net.hierarchy, leaf_list);
+    char *valid_list = option_find_str(options, "valid", "data/train.list");
+    int classes = option_find_int(options, "classes", 2);
+    int topk = option_find_int(options, "top", 1);
+    if (topk_custom > 0) topk = topk_custom;    // for validation during training
+    if (topk > classes) topk = classes;
+    printf(" TOP calculation...\n");
+
+    char **labels = get_labels(label_list);
+    list *plist = get_paths(valid_list);
+
+    char **paths = (char **)list_to_array(plist);
+    int m = plist->size;
+    free_list(plist);
+
+    float avg_acc = 0;
+    float avg_topk = 0;
+
+    float* avg_acc_cls = (float*)calloc(classes,sizeof(float));
+    float* avg_topk_cls = (float*)calloc(classes,sizeof(float));
+    float* num_cls = (float*)calloc(classes,sizeof(float));
+
+
+    int* indexes = (int*)calloc(topk, sizeof(int));
+
+
+    float** preds = (float**)calloc(m, sizeof(float*));
+    float** class_ids = (float**)calloc(m,sizeof(float*));
+    for ( i = 0 ; i < m ; i++ ) {
+        preds[i] = (float*)calloc(classes,sizeof(float));
+        class_ids[i] = (float*)calloc(classes,sizeof(float));
+    }
+
+
+    for(i = 0; i < m; ++i){
+        int class_id = -1;
+        char *path = paths[i];
+        //ground truth value
+        fill_truth_txt(path, classes, class_ids[i]);
+
+        // for(j = 0; j < classes; ++j){
+        //     if(strstr(path, labels[j])){
+        //         class_id = j;
+        //         break;
+        //     }
+        // }
+        image im = load_image_color(paths[i], 0, 0);
+        image resized = resize_min(im, net.w);
+        image crop = crop_image(resized, (resized.w - net.w)/2, (resized.h - net.h)/2, net.w, net.h);
+        //show_image(im, "orig");
+        //show_image(crop, "cropped");
+        //cvWaitKey(0);
+        float *pred = network_predict(net, crop.data);
+        if(net.hierarchy) hierarchy_predictions(pred, net.outputs, net.hierarchy, 1);
+        //pred value
+        memcpy(preds[i] , pred , sizeof(float)*classes);
+        // class_ids[i] = class_id;
+
+        if(resized.data != im.data) free_image(resized);
+        free_image(im);
+        free_image(crop);
+        top_k(pred, classes, topk, indexes);
+
+        // if(indexes[0] == class_id) avg_acc += 1;
+        // for(j = 0; j < topk; ++j){
+        //     if(indexes[j] == class_id) avg_topk += 1;
+        // }
+
+        //class_id > 0 -> class_id >= 0 bug fix
+        if ( class_id >= 0) {//防止意外 
+            num_cls[class_id] += 1.0;
+
+            if(indexes[0] == class_id) {
+                avg_acc += 1;
+                avg_acc_cls[class_id] += 1.0;
+            }
+            for(j = 0; j < topk; ++j){
+                if(indexes[j] == class_id) {
+                    avg_topk += 1;
+                    avg_topk_cls[class_id] += 1.0;
+                }
+            }
+        }
+
+        if (i%1000==0 || i == m -1 ) {
+            if (existing_net) printf("\r");
+            else printf("\n");
+            printf("%d: top 1: %f, top %d: %f", i, avg_acc/(i+1), topk, avg_topk/(i+1));
+        }
+    }
+
+    printf("\n");
+    for ( i = 0 ; i < classes ; i++ ) {
+        printf("classid = %d, top 1: %f, top %d: %f, Total num: %d\n", i , avg_acc_cls[i]/num_cls[i] , avg_topk_cls[i]/num_cls[i] , topk , (int)(num_cls[i]) );
+    }
+
+    float avg_auc = get_roc_auc2( preds , class_ids ,  classes, m );
+
+    if (existing_net) {
+        set_batch_network(&net, old_batch);
+    }
+    float topk_result = avg_topk / i;
+
+    for( i = 0; i < m ; i++ ){
+        free(preds[i]);
+        free(class_ids[i]);
+    }
+
+    free(preds);
+    free(class_ids);
+    // free(aucs);
+    free(indexes);
+    free(avg_acc_cls);
+    free(num_cls);
+    free(avg_topk_cls);
+
+
+    return topk_result;
+}
+
+
 //multi scale of image 并且进行flip，多次predict的结果加权（这里仅累加）显示
 void validate_classifier_multi(char *datacfg, char *filename, char *weightfile)
 {
@@ -1831,6 +1979,7 @@ void run_classifier(int argc, char **argv)
     else if(0==strcmp(argv[2], "valid2")) validate_classifier_single2(data, cfg, weights, NULL, 0.5 , -1);//20190625++F1 precision recall
     else if(0==strcmp(argv[2], "valid3")) validate_classifier_single3(data, cfg, weights, NULL , -1);//20190716++AUC
     else if(0==strcmp(argv[2], "valid4")) validate_classifier_single4(data, cfg, weights, NULL , -1);//20190717++AUC with Top1
+    else if(0==strcmp(argv[2], "valid5")) validate_classifier_single5(data, cfg, weights, NULL , -1);//20190802++AUC with Top1 fix for txt file
     else if(0==strcmp(argv[2], "validmulti")) validate_classifier_multi(data, cfg, weights);//多个scale尺度 x 2镜像 加权投票
     else if(0==strcmp(argv[2], "valid10")) validate_classifier_10(data, cfg, weights);//5个shift x 2镜像 加权投票
     else if(0==strcmp(argv[2], "validcrop")) validate_classifier_crop(data, cfg, weights);
