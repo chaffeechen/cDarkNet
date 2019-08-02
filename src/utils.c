@@ -960,6 +960,9 @@ float get_roc_auc(float** preds , int* class_ids , int classes, int m)
 
         free(arr_tp);
         free(arr_fp);
+
+        free(aucs);
+        free(cls_result);
         
 
     }
