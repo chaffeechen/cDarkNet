@@ -42,12 +42,20 @@ float * get_network_output_gpu_layer(network net, int i);
 float * get_network_delta_gpu_layer(network net, int i);
 float * get_network_output_gpu(network net);
 
+static int entry_index(layer l, int batch, int location, int entry)
+{
+    int n =   location / (l.w*l.h);
+    int loc = location % (l.w*l.h);
+    return batch*l.outputs + n*l.w*l.h*(4+l.classes+1) + entry*l.w*l.h + loc;
+}
+
 void forward_network_gpu(network net, network_state state)
 {
     //cudaDeviceSynchronize();
     //printf("\n");
     state.workspace = net.workspace;
     int i;
+    int yolo_cnt = 0;
     for(i = 0; i < net.n; ++i){
         state.index = i;
         layer l = net.layers[i];
@@ -56,6 +64,69 @@ void forward_network_gpu(network net, network_state state)
         }
         //printf("\n layer %d - type: %d - \n", i, l.type);
         //start_timer();
+
+        if(l.type == YOLO && !state.train ){
+            float *in_cpu = (float *)calloc(l.batch*l.outputs, sizeof(float));
+            cuda_pull_array(state.input, in_cpu, l.batch*l.outputs);
+           if(yolo_cnt == 0){
+                FILE *file = fopen("prev_layer1.txt", "w+");
+                for ( int n = 0 ; n < l.n ; n++){
+                    fprintf(file, "===mask:%d====\n", n );
+                    for(int c = 0; c < 5+l.classes ; c++){
+                        fprintf(file, "===mask:%d, (x,y,w,h,obj,cls):%d===\n", n , c );
+                        for(int h = 0 ; h < l.h ; h++){
+                                for (int w = 0; w < l.w; ++w){
+                                    int location = n*l.w*l.h + h*l.w + w;
+                                    int index = entry_index(l,0,location,c);
+                                    float val = *(in_cpu+index);
+                                    fprintf(file,"%f,",val);
+                                }
+                                fprintf(file, "\n");
+                            }
+                        }
+                    }
+                fclose(file);
+            }else if(yolo_cnt==1){
+                FILE *file = fopen("prev_layer2.txt", "w+");
+                for ( int n = 0 ; n < l.n ; n++){
+                    fprintf(file, "===mask:%d====\n", n );
+                    for(int c = 0; c < 5+l.classes ; c++){
+                        fprintf(file, "===mask:%d, (x,y,w,h,obj,cls):%d===\n", n , c );
+                        for(int h = 0 ; h < l.h ; h++){
+                                for (int w = 0; w < l.w; ++w){
+                                    int location = n*l.w*l.h + h*l.w + w;
+                                    int index = entry_index(l,0,location,c);
+                                    float val = *(in_cpu+index);
+                                    fprintf(file,"%f,",val);
+                                }
+                                fprintf(file, "\n");
+                            }
+                        }
+                    }
+                fclose(file);
+            }else if (yolo_cnt==2){
+                FILE *file = fopen("prev_layer3.txt", "w+");
+                for ( int n = 0 ; n < l.n ; n++){
+                    fprintf(file, "===mask:%d====\n", n );
+                    for(int c = 0; c < 5+l.classes ; c++){
+                        fprintf(file, "===mask:%d, (x,y,w,h,obj,cls):%d===\n", n , c );
+                        for(int h = 0 ; h < l.h ; h++){
+                                for (int w = 0; w < l.w; ++w){
+                                    int location = n*l.w*l.h + h*l.w + w;
+                                    int index = entry_index(l,0,location,c);
+                                    float val = *(in_cpu+index);
+                                    fprintf(file,"%f,",val);
+                                }
+                                fprintf(file, "\n");
+                            }
+                        }
+                    }
+                fclose(file);
+            }
+            yolo_cnt++;            
+            free(in_cpu);
+        }
+
         l.forward_gpu(l, state);
         //CHECK_CUDA(cudaDeviceSynchronize());
         //stop_timer_and_show();

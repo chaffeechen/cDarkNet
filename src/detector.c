@@ -4731,9 +4731,13 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         //printf("%s: Predicted in %f seconds.\n", input, (what_time_is_it_now()-time));
 
         int nboxes = 0;
+        printf("dd1\n");
         detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letterbox);
+        printf("dd2\n");
         if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
+        printf("dd3\n");
         draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
+        printf("dd4\n");
         save_image(im, "predictions");
         if (!dont_show) {
             show_image(im, "predictions");

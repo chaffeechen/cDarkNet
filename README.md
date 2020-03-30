@@ -1,4 +1,13 @@
 # cDarkNet
+
+What is anchor and mask?
+
+Anchor is the predefined size of boxes. 
+The center of box is fixed and defined as the position of pixels of the final feature map.
+The mask is used to pick out which set of anchors to be used because yolo has several output branches.
+The anchor is stored in layer.bias and mask is stored in layer.mask.
+Each output branch use layer.mask as offset to settle which anchor to be used.
+
 cDarkNet is modified by AlexeyAB's darknet
 
 1. detector test function modified
