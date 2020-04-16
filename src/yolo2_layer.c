@@ -383,15 +383,16 @@ void forward_yolo2_layer(const layer l, network_state state)
     int class_count = 0;
     float aug_data_scale = l.aug_data_scale > 0 ? l.aug_data_scale:1.0;//++20190620
     *(l.cost) = 0;
-    for (b = 0; b < l.batch; ++b) {
-        for (j = 0; j < l.h; ++j) {
-            for (i = 0; i < l.w; ++i) {
-                for (n = 0; n < l.n; ++n) {
+    for (b = 0; b < l.batch; ++b) {//batch
+        for (j = 0; j < l.h; ++j) {//h
+            for (i = 0; i < l.w; ++i) {//w
+                for (n = 0; n < l.n; ++n) { //n
                     int box_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 0);
                     box pred = get_yolo2_box(l.output, l.biases, l.mask[n], box_index, i, j, l.w, l.h, state.net.w, state.net.h, l.w*l.h);
                     float best_iou = 0;
                     int best_t = 0;
-                    for(t = 0; t < l.max_boxes; ++t){
+                    //For each predicted boxes, attach the groundtruth bbox with largest iou with it.
+                    for(t = 0; t < l.max_boxes; ++t){//Loop every groundtruth bbox
                         // box truth = float_to_box_stride(state.truth + t*(4 + 1) + b*l.truths, 1);
                         box truth = float_to_box_stride(state.truth + t*(4 + 2) + b*l.truths, 1);//5->6
                         // int class_id = state.truth[t*(4 + 1) + b*l.truths + 4];
@@ -412,13 +413,16 @@ void forward_yolo2_layer(const layer l, network_state state)
                             best_iou = iou;
                             best_t = t;
                         }
-                    }
+                    } // for(t = 0; t < l.max_boxes; ++t)
+
                     int obj_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 4);
                     avg_anyobj += l.output[obj_index];
+                    //If a predicted bbox has not been attached with any grdtruth bbox, noobject should be bped.
                     l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
                     if (best_iou > l.ignore_thresh) {
                         l.delta[obj_index] = 0;
                     }
+                    //Else, object is bped.
                     if (best_iou > l.truth_thresh) {
                         l.delta[obj_index] = l.object_scale * ( 1 - l.output[obj_index]);
 
@@ -435,10 +439,12 @@ void forward_yolo2_layer(const layer l, network_state state)
                         //Chaffee@20190611
                         //>>delta_yolo_box(truth, l.output, l.biases, l.mask[n], box_index, i, j, l.w, l.h, state.net.w, state.net.h, l.delta, (2-truth.w*truth.h), l.w*l.h);
                         delta_yolo2_box(truth, l.output, l.biases, l.mask[n], box_index, i, j, l.w, l.h, state.net.w, state.net.h, l.delta, l.coord_scale*(2-truth.w*truth.h), l.w*l.h);
-                    }
-                }
-            }
-        }
+                    }//if (best_iou > l.truth_thresh)
+                }//n
+            }//w
+        }//h
+
+        //Grad of bias
         for(t = 0; t < l.max_boxes; ++t){
             // box truth = float_to_box_stride(state.truth + t*(4 + 1) + b*l.truths, 1);
             box truth = float_to_box_stride(state.truth + t*(4 + 2) + b*l.truths, 1);
@@ -509,8 +515,8 @@ void forward_yolo2_layer(const layer l, network_state state)
                 if(iou > .5) recall += 1;
                 if(iou > .75) recall75 += 1;
                 avg_iou += iou;
-            }
-        }
+            } // if(mask_n >= 0)
+        } //for(t = 0; t < l.max_boxes; ++t)
     }
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
     printf("Region %d Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n", state.index, avg_iou/count, avg_cat/class_count, avg_obj/count, avg_anyobj/(l.w*l.h*l.n*l.batch), recall/count, recall75/count, count);
